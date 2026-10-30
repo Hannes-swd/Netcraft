@@ -87,6 +87,17 @@ public final class VmManager {
     }
 
     /** OpenWrt role of a device ("router" / "switch") once it is set up, else empty. */
+    /** The Cisco IOS image a router or switch runs (its ports are then called Gi0/0, ...), or null. */
+    public @Nullable CiscoImage ciscoOf(UUID id) {
+        VirtualMachine vm = machines.get(id);
+        return vm != null ? vm.cisco() : null;
+    }
+
+    /** Ready-made disk images in the world's and the game's ISO folder. */
+    List<String> diskImages() {
+        return listFiles(IMAGE_ENDINGS);
+    }
+
     public String provisionOf(UUID id) {
         VirtualMachine vm = machines.get(id);
         return vm != null && vm.config().provisioned ? vm.config().provision : "";

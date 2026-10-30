@@ -364,6 +364,7 @@ public final class VirtualMachine {
                     current.provision = wanted.diskImage.toLowerCase(Locale.ROOT).startsWith("openwrt")
                             ? (deviceType() == DeviceType.MANAGED_SWITCH ? OpenWrtProvisioner.SWITCH : OpenWrtProvisioner.ROUTER) : "";
                     current.provisioned = false;
+                    fitHardwareToCisco();
                 }
             }
             if (!locked && !Objects.equals(current.iso, wanted.iso)) {
@@ -428,6 +429,10 @@ public final class VirtualMachine {
         Process started = null;
         try {
             Files.createDirectories(dir);
+            if (!resume) {
+                pickDefaultCiscoImage();
+                fitHardwareToCisco();
+            }
             ensureDisk();
             killStaleProcess();
 
@@ -528,7 +533,8 @@ public final class VirtualMachine {
             watchForExit(started);
             String startMessage = resume ? "virtual_mashine.msg.resumed" : isoMissing() ? "virtual_mashine.msg.iso_missing"
                     : installerBoot ? "virtual_mashine.msg.android_installing"
-                    : !config.provision.isEmpty() && !config.provisioned ? "virtual_mashine.msg.provisioning" : "";
+                    : !config.provision.isEmpty() && !config.provisioned ? "virtual_mashine.msg.provisioning"
+                    : cisco() != null ? "virtual_mashine.msg.cisco_started" : "";
             setState(State.RUNNING, startMessage, "");
             if (VmConfig.NET_CABLE.equals(config.netMode) && wires.length > 0) {
                 manager.network().vmNetworkChanged(id, true);
@@ -750,8 +756,10 @@ public final class VirtualMachine {
         cmd.add(qemu.toString());
         cmd.add("-name");
         cmd.add("guest=" + escape("Minecraft " + c.name));
+        CiscoImage cisco = cisco();
         cmd.add("-machine");
-        cmd.add("q35");
+        // IOSv numbers its interfaces by PCI slot the way it does in CML, on QEMU's classic PC.
+        cmd.add(cisco != null ? "pc" : "q35");
         if (c.acceleration) {
             switch (HostInfo.OS) {
                 case WINDOWS -> cmd.addAll(List.of("-accel", "whpx,kernel-irqchip=off"));
@@ -773,7 +781,10 @@ public final class VirtualMachine {
         cmd.addAll(List.of("-drive", "if=none,id=hd0,format=qcow2,file=" + escape(diskPath().toString())));
         // With -kernel, QEMU's kernel loader takes boot index 0 itself.
         int firstBoot = installerBoot ? 1 : 0;
-        cmd.addAll(List.of("-device", "ide-hd,drive=hd0,bus=ide.0,bootindex=" + (firstBoot + (c.bootFromCd ? 1 : 0))));
+        int diskBoot = firstBoot + (c.bootFromCd ? 1 : 0);
+        // Cisco IOSv only finds its flash on a virtio disk.
+        cmd.addAll(List.of("-device", cisco != null ? "virtio-blk-pci,drive=hd0,bootindex=" + diskBoot
+                : "ide-hd,drive=hd0,bus=ide.0,bootindex=" + diskBoot));
         Path iso = manager.resolveIso(c.iso);
         String cdrom = "if=none,id=cd0,media=cdrom,readonly=on" + (iso != null ? ",format=raw,file=" + escape(iso.toString()) : "");
         cmd.addAll(List.of("-drive", cdrom));
@@ -798,6 +809,8 @@ public final class VirtualMachine {
         }
         // Absolute pointer device, so the guest cursor follows the Minecraft mouse exactly.
         cmd.addAll(List.of("-device", "qemu-xhci,id=xhci", "-device", "usb-tablet,bus=xhci.0"));
+        // IOS only has drivers for Intel e1000 cards.
+        String nicModel = cisco != null ? "e1000" : c.nicModel;
         switch (c.netMode) {
             case VmConfig.NET_CABLE -> {
                 // Each socket of the device is a network card whose frames go through the mod's cables.
@@ -805,7 +818,7 @@ public final class VirtualMachine {
                     cmd.addAll(List.of("-netdev", "dgram,id=net" + port
                             + ",local.type=inet,local.host=127.0.0.1,local.port=" + wires[port].qemuPort()
                             + ",remote.type=inet,remote.host=127.0.0.1,remote.port=" + wires[port].modPort()));
-                    cmd.addAll(List.of("-device", c.nicModel + ",netdev=net" + port + ",id=nic" + port + ",mac=" + macAddress(port)));
+                    cmd.addAll(List.of("-device", nicModel + ",netdev=net" + port + ",id=nic" + port + ",mac=" + macAddress(port)));
                 }
             }
             // Online without cabling: one card wired invisibly to a private, filtered uplink (see NetworkManager).
@@ -813,7 +826,7 @@ public final class VirtualMachine {
                 if (wires.length > 0) {
                     cmd.addAll(List.of("-netdev", "dgram,id=net0,local.type=inet,local.host=127.0.0.1,local.port=" + wires[0].qemuPort()
                             + ",remote.type=inet,remote.host=127.0.0.1,remote.port=" + wires[0].modPort()));
-                    cmd.addAll(List.of("-device", c.nicModel + ",netdev=net0,id=nic0,mac=" + macAddress(0)));
+                    cmd.addAll(List.of("-device", nicModel + ",netdev=net0,id=nic0,mac=" + macAddress(0)));
                 } else {
                     cmd.addAll(List.of("-nic", "none"));
                 }
@@ -976,6 +989,9 @@ public final class VirtualMachine {
         }
         try {
             runTool(List.of(qemuImg.toString(), "convert", "-O", "qcow2", source.toString(), diskPath().toString()), 30 * 60);
+            if (cisco() != null) {
+                return; // IOS's flash is laid out for the image's own size.
+            }
             try {
                 runTool(List.of(qemuImg.toString(), "resize", diskPath().toString(), config.diskGb + "G"), 60);
             } catch (IOException tooSmall) {
@@ -985,6 +1001,46 @@ public final class VirtualMachine {
             if (unpacked != null) {
                 Files.deleteIfExists(unpacked);
             }
+        }
+    }
+
+    /** The Cisco IOS image this machine runs, or null for any other system. */
+    public @Nullable CiscoImage cisco() {
+        return CiscoImage.of(config.diskImage);
+    }
+
+    /**
+     * Routers and switches use Cisco IOS by default: one without a disk, image and CD gets the newest
+     * IOSv (router) or IOSvL2 (switch) from the ISO folder, if there is one. OpenWrt stays selectable.
+     */
+    private void pickDefaultCiscoImage() {
+        if (diskExists() || !config.diskImage.isEmpty() || !config.iso.isEmpty()) {
+            return;
+        }
+        String image = defaultCiscoImage(deviceType());
+        if (image != null) {
+            config.diskImage = image;
+            config.provision = "";
+            config.provisioned = false;
+            saveConfig();
+        }
+    }
+
+    private @Nullable String defaultCiscoImage(DeviceType type) {
+        CiscoImage kind = switch (type) {
+            case ROUTER -> CiscoImage.ROUTER;
+            case MANAGED_SWITCH -> CiscoImage.SWITCH;
+            default -> null;
+        };
+        return kind == null ? null : kind.newest(manager.diskImages());
+    }
+
+    /** IOS needs a little more RAM than the router's default and only knows e1000 network cards. */
+    private void fitHardwareToCisco() {
+        CiscoImage cisco = cisco();
+        if (cisco != null) {
+            config.ramMb = Math.max(config.ramMb, Math.min(cisco.minRamMb, HostInfo.maxRamMb()));
+            config.nicModel = "e1000";
         }
     }
 
@@ -1191,6 +1247,12 @@ public final class VirtualMachine {
         }
         if (typeForNew == DeviceType.DISPLAY && manager.resolveIso(DISPLAY_IMAGE) != null) {
             fresh.diskImage = DISPLAY_IMAGE; // The ready-made kiosk system, when it is in the ISO folder.
+        }
+        // Cisco IOS by default, when its images are in the ISO folder (see pickDefaultCiscoImage).
+        String ciscoImage = defaultCiscoImage(typeForNew);
+        if (ciscoImage != null) {
+            fresh.diskImage = ciscoImage;
+            fresh.ramMb = Math.max(fresh.ramMb, Math.min(CiscoImage.of(ciscoImage).minRamMb, HostInfo.maxRamMb()));
         }
         return fresh;
     }

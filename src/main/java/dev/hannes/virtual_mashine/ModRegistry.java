@@ -1,6 +1,7 @@
 package dev.hannes.virtual_mashine;
 
 import com.mojang.serialization.Codec;
+import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
 import dev.hannes.virtual_mashine.device.CableType;
@@ -60,6 +61,7 @@ public final class ModRegistry {
     public static final Block ROUTER_BLOCK = device(DeviceType.ROUTER, Block.box(2, 0, 2, 14, 3, 14), MapColor.COLOR_BLACK, 3);
     public static final Block MANAGED_SWITCH_BLOCK = device(DeviceType.MANAGED_SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.COLOR_BLUE, 3);
     public static final Block SWITCH_BLOCK = device(DeviceType.SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.METAL, 3);
+    public static final Block HUB_BLOCK = device(DeviceType.HUB, Block.box(0, 0, 0, 16, 4, 16), MapColor.TERRACOTTA_WHITE, 3);
     public static final Block MODEM_BLOCK = device(DeviceType.MODEM, Block.box(4, 0, 4, 12, 7, 12), MapColor.SNOW, 3);
     public static final Block LAPTOP_BLOCK = device(DeviceType.LAPTOP, Block.box(2, 0, 2, 14, 9, 14), MapColor.COLOR_GRAY, 5);
     public static final Block ACCESS_POINT_BLOCK = device(DeviceType.ACCESS_POINT, Block.box(4, 0, 4, 12, 3, 12), MapColor.SNOW, 3);
@@ -80,6 +82,15 @@ public final class ModRegistry {
         }
     }
 
+    public static final Block CABLE_CLIP_BLOCK = Blocks.register(ResourceKey.create(Registries.BLOCK, Virtual_mashine.id("cable_clip")),
+            CableClipBlock::new, BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_GRAY)
+                    .strength(0.3F)
+                    .sound(SoundType.STONE)
+                    .noCollision()
+                    .noOcclusion());
+    public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties.useBlockDescriptionPrefix()));
+
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
 
@@ -99,12 +110,13 @@ public final class ModRegistry {
         tab("devices", DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.LAPTOP),
                 PHONE, DEVICE_ITEMS.get(DeviceType.SERVER), DEVICE_ITEMS.get(DeviceType.DISPLAY), DEVICE_ITEMS.get(DeviceType.HDMI_SWITCH),
                 DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA));
-        tab("network_devices", DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.SWITCH),
+        tab("network_devices", DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.HUB),
                 DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT));
         tab("internet", DEVICE_ITEMS.get(DeviceType.MODEM), DEVICE_ITEMS.get(DeviceType.MODEM));
         tab("automation", DEVICE_ITEMS.get(DeviceType.IO_MODULE), DEVICE_ITEMS.get(DeviceType.IO_MODULE),
                 DEVICE_ITEMS.get(DeviceType.DISPLAY));
         java.util.List<Item> cablesAndTools = new java.util.ArrayList<>(CABLES.values());
+        cablesAndTools.add(CABLE_CLIP);
         cablesAndTools.add(NETWORK_TESTER);
         tab("cables", CABLES.get(CableType.CAT6), cablesAndTools.toArray(new Item[0]));
     }

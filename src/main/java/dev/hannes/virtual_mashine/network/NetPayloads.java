@@ -6,6 +6,7 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -325,8 +326,26 @@ public final class NetPayloads {
         }
     }
 
-    /** One cable as the client draws it. */
-    public record CableVisual(double ax, double ay, double az, double bx, double by, double bz, int color) {
+    /** One cable as the client draws it: socket, the clips it hangs from, socket. */
+    public record CableVisual(List<Vec3> points, int color) {
+    }
+
+    private static void writePoints(RegistryFriendlyByteBuf buf, List<Vec3> points) {
+        buf.writeVarInt(points.size());
+        for (Vec3 point : points) {
+            buf.writeDouble(point.x);
+            buf.writeDouble(point.y);
+            buf.writeDouble(point.z);
+        }
+    }
+
+    private static List<Vec3> readPoints(RegistryFriendlyByteBuf buf) {
+        int count = Math.min(buf.readVarInt(), 1_000);
+        List<Vec3> points = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            points.add(new Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble()));
+        }
+        return points;
     }
 
     /** Server to client: all cables of the player's dimension (sent whenever one changes). */
@@ -336,12 +355,7 @@ public final class NetPayloads {
                 (payload, buf) -> {
                     buf.writeVarInt(payload.cables.size());
                     for (CableVisual c : payload.cables) {
-                        buf.writeDouble(c.ax());
-                        buf.writeDouble(c.ay());
-                        buf.writeDouble(c.az());
-                        buf.writeDouble(c.bx());
-                        buf.writeDouble(c.by());
-                        buf.writeDouble(c.bz());
+                        writePoints(buf, c.points());
                         buf.writeInt(c.color());
                     }
                 },
@@ -349,8 +363,7 @@ public final class NetPayloads {
                     int count = Math.min(buf.readVarInt(), 100_000);
                     List<CableVisual> cables = new ArrayList<>(count);
                     for (int i = 0; i < count; i++) {
-                        cables.add(new CableVisual(buf.readDouble(), buf.readDouble(), buf.readDouble(),
-                                buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readInt()));
+                        cables.add(new CableVisual(readPoints(buf), buf.readInt()));
                     }
                     return new CableSync(cables);
                 });
@@ -361,18 +374,73 @@ public final class NetPayloads {
         }
     }
 
-    /** Server to client: one end of a cable is plugged in, the rest hangs from the player's hand. */
-    public record HeldCable(boolean active, double x, double y, double z, int color) implements CustomPacketPayload {
+    /**
+     * Server to client: one end of a cable is plugged in, the rest hangs from the player's hand.
+     * {@code points} = the socket, then the clips it already hangs from.
+     */
+    public record HeldCable(boolean active, List<Vec3> points, int color) implements CustomPacketPayload {
+        public static final HeldCable NONE = new HeldCable(false, List.of(), 0);
         public static final Type<HeldCable> TYPE = new Type<>(Virtual_mashine.id("held_cable"));
         public static final StreamCodec<RegistryFriendlyByteBuf, HeldCable> CODEC = StreamCodec.ofMember(
                 (payload, buf) -> {
                     buf.writeBoolean(payload.active);
-                    buf.writeDouble(payload.x);
-                    buf.writeDouble(payload.y);
-                    buf.writeDouble(payload.z);
+                    writePoints(buf, payload.points);
                     buf.writeInt(payload.color);
                 },
-                buf -> new HeldCable(buf.readBoolean(), buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readInt()));
+                buf -> new HeldCable(buf.readBoolean(), readPoints(buf), buf.readInt()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** A cable hanging from a clip, as the clip menu lists it. */
+    public record ClipCable(UUID cable, String from, String to, String cableType, int color) {
+    }
+
+    /** Server to client: the menu of a cable clip with every cable hanging from it. */
+    public record ClipView(BlockPos pos, List<ClipCable> cables, String message) implements CustomPacketPayload {
+        public static final Type<ClipView> TYPE = new Type<>(Virtual_mashine.id("clip_view"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, ClipView> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    buf.writeBlockPos(payload.pos);
+                    buf.writeVarInt(payload.cables.size());
+                    for (ClipCable cable : payload.cables) {
+                        UUIDUtil.STREAM_CODEC.encode(buf, cable.cable());
+                        buf.writeUtf(cable.from(), 256);
+                        buf.writeUtf(cable.to(), 256);
+                        buf.writeUtf(cable.cableType(), 32);
+                        buf.writeInt(cable.color());
+                    }
+                    buf.writeUtf(payload.message, 256);
+                },
+                buf -> {
+                    BlockPos pos = buf.readBlockPos();
+                    int count = Math.min(buf.readVarInt(), 256);
+                    List<ClipCable> cables = new ArrayList<>(count);
+                    for (int i = 0; i < count; i++) {
+                        cables.add(new ClipCable(UUIDUtil.STREAM_CODEC.decode(buf), buf.readUtf(256), buf.readUtf(256),
+                                buf.readUtf(32), buf.readInt()));
+                    }
+                    return new ClipView(pos, cables, buf.readUtf(256));
+                });
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client to server: take this cable off the clip (it stays plugged in). */
+    public record ClipAction(BlockPos pos, UUID cable) implements CustomPacketPayload {
+        public static final Type<ClipAction> TYPE = new Type<>(Virtual_mashine.id("clip_action"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, ClipAction> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    buf.writeBlockPos(payload.pos);
+                    UUIDUtil.STREAM_CODEC.encode(buf, payload.cable);
+                },
+                buf -> new ClipAction(buf.readBlockPos(), UUIDUtil.STREAM_CODEC.decode(buf)));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

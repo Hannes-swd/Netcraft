@@ -18,14 +18,14 @@ import org.joml.Vector3f;
 
 import java.util.List;
 
-/** Draws every patch cable as a sagging, lit tube between its two sockets. */
+/** Draws every patch cable as a sagging, lit tube between its two sockets (over the clips it hangs from). */
 public final class CableRenderer {
     private static final Identifier TEXTURE = Virtual_mashine.id("textures/entity/cable.png");
     private static final float RADIUS = 0.028F;
     private static final double MAX_DISTANCE = 128;
 
     private static volatile List<NetPayloads.CableVisual> cables = List.of();
-    private static volatile NetPayloads.HeldCable held = new NetPayloads.HeldCable(false, 0, 0, 0, 0);
+    private static volatile NetPayloads.HeldCable held = NetPayloads.HeldCable.NONE;
 
     private CableRenderer() {
     }
@@ -40,7 +40,7 @@ public final class CableRenderer {
 
     public static void clear() {
         cables = List.of();
-        held = new NetPayloads.HeldCable(false, 0, 0, 0, 0);
+        held = NetPayloads.HeldCable.NONE;
     }
 
     public static void render(LevelRenderContext context) {
@@ -55,21 +55,28 @@ public final class CableRenderer {
         PoseStack poseStack = context.poseStack();
         context.submitNodeCollector().submitCustomGeometry(poseStack, RenderTypes.entitySolid(TEXTURE), (pose, buffer) -> {
             for (NetPayloads.CableVisual cable : all) {
-                Vec3 a = new Vec3(cable.ax(), cable.ay(), cable.az());
-                Vec3 b = new Vec3(cable.bx(), cable.by(), cable.bz());
-                if (a.distanceTo(camera) > MAX_DISTANCE && b.distanceTo(camera) > MAX_DISTANCE) {
-                    continue;
+                // From socket to socket over every clip it hangs from; each stretch sags on its own.
+                List<Vec3> points = cable.points();
+                for (int i = 1; i < points.size(); i++) {
+                    Vec3 a = points.get(i - 1);
+                    Vec3 b = points.get(i);
+                    if (a.distanceTo(camera) <= MAX_DISTANCE || b.distanceTo(camera) <= MAX_DISTANCE) {
+                        tube(buffer, pose, level, camera, a, b, cable.color());
+                    }
                 }
-                tube(buffer, pose, level, camera, a, b, cable.color());
             }
             LocalPlayer player = minecraft.player;
-            if (inHand.active() && player != null) {
+            if (inHand.active() && player != null && !inHand.points().isEmpty()) {
                 float partial = minecraft.getDeltaTracker().getGameTimeDeltaPartialTick(true);
                 Vec3 eye = player.getEyePosition(partial);
                 Vec3 look = player.getViewVector(partial);
                 Vec3 right = look.cross(new Vec3(0, 1, 0)).normalize();
                 Vec3 hand = eye.add(look.scale(0.45)).add(right.scale(0.28)).add(0, -0.38, 0);
-                tube(buffer, pose, level, camera, new Vec3(inHand.x(), inHand.y(), inHand.z()), hand, inHand.color());
+                List<Vec3> points = inHand.points();
+                for (int i = 1; i < points.size(); i++) {
+                    tube(buffer, pose, level, camera, points.get(i - 1), points.get(i), inHand.color());
+                }
+                tube(buffer, pose, level, camera, points.get(points.size() - 1), hand, inHand.color());
             }
         });
     }

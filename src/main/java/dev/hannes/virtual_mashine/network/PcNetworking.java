@@ -21,6 +21,8 @@ public final class PcNetworking {
         PayloadTypeRegistry.clientboundPlay().register(NetPayloads.CableSync.TYPE, NetPayloads.CableSync.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(NetPayloads.HeldCable.TYPE, NetPayloads.HeldCable.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(NetPayloads.PortAction.TYPE, NetPayloads.PortAction.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.ClipView.TYPE, NetPayloads.ClipView.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.ClipAction.TYPE, NetPayloads.ClipAction.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(NetPayloads.WlanView.TYPE, NetPayloads.WlanView.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(NetPayloads.ApView.TYPE, NetPayloads.ApView.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(NetPayloads.WlanAction.TYPE, NetPayloads.WlanAction.CODEC);
@@ -82,6 +84,12 @@ public final class PcNetworking {
             VmManager manager = VmManager.get();
             if (manager != null) {
                 manager.network().handlePortAction(context.player(), payload);
+            }
+        });
+        ServerPlayNetworking.registerGlobalReceiver(NetPayloads.ClipAction.TYPE, (payload, context) -> {
+            VmManager manager = VmManager.get();
+            if (manager != null) {
+                manager.network().handleClipAction(context.player(), payload);
             }
         });
 

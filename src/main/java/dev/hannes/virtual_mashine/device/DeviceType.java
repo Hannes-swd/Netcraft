@@ -13,6 +13,8 @@ public enum DeviceType {
     ROUTER("router", Kind.VM, 4, "eth", 0, true, 512, 1, true, 0.375, 0.10, 0.54),
     MANAGED_SWITCH("managed_switch", Kind.VM, 8, "Port ", 1, true, 512, 1, true, 0.50, 0.13, 0.80),
     SWITCH("switch", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.13, 0.80),
+    /** Ethernet hub: learns nothing, every frame goes out of all other ports. */
+    HUB("hub", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.13, 0.80),
     MODEM("modem", Kind.MODEM, 1, "LAN", -1, true, 0, 0, false, 0.25, 0.22, 0.0),
     /** Notebook: a computer with only a WLAN card (port 0 has no socket). */
     LAPTOP("laptop", Kind.VM, 1, "wlan", 0, false, 4096, 2, false, 0.30, 0.05, 0.0),

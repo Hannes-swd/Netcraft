@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=up": { "model": "virtual_mashine:block/cable_clip" },
+    "facing=down": { "model": "virtual_mashine:block/cable_clip", "x": 180 },
+    "facing=north": { "model": "virtual_mashine:block/cable_clip", "x": 90 },
+    "facing=east": { "model": "virtual_mashine:block/cable_clip", "x": 90, "y": 90 },
+    "facing=south": { "model": "virtual_mashine:block/cable_clip", "x": 90, "y": 180 },
+    "facing=west": { "model": "virtual_mashine:block/cable_clip", "x": 90, "y": 270 }
+  }
+}

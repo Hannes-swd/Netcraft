@@ -4,6 +4,7 @@ import dev.hannes.virtual_mashine.client.ClientPcState;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.network.PcActionPayload;
 import dev.hannes.virtual_mashine.network.PcInfoPayload;
+import dev.hannes.virtual_mashine.vm.CiscoImage;
 import dev.hannes.virtual_mashine.vm.VmConfig;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -11,13 +12,18 @@ import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Util;
+import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
@@ -37,7 +43,7 @@ public class PcControlScreen extends PcScreen {
     private boolean syncing;
 
     private EditBox nameBox;
-    private CycleButton<String> isoButton;
+    private Dropdown<String> isoButton;
     private ValueSlider ramSlider;
     private ValueSlider cpuSlider;
     private ValueSlider diskSlider;
@@ -56,7 +62,7 @@ public class PcControlScreen extends PcScreen {
     private Button resetButton;
     private Button freezeButton;
     private Button discardButton;
-    private CycleButton<String> imageButton;
+    private Dropdown<String> imageButton;
     private Button diskActionButton;
 
     private int left;
@@ -93,13 +99,13 @@ public class PcControlScreen extends PcScreen {
             isoValues.add(config.iso); // Inserted but the file is gone; keep showing it.
         }
         builtIsoList = List.copyOf(info.isos());
-        isoButton = CycleButton.<String>builder(iso -> iso.isEmpty() ? Component.translatable("virtual_mashine.option.iso.none") : Component.literal(iso), config.iso)
-                .withValues(isoValues)
-                .withTooltip(iso -> Tooltip.create(Component.translatable("virtual_mashine.option.iso.tooltip")))
-                .create(right, y, half, 20, Component.translatable("virtual_mashine.option.iso"), (button, iso) -> {
+        isoButton = new Dropdown<>(right, y, half, 20, Component.translatable("virtual_mashine.option.iso"), isoValues, config.iso,
+                iso -> iso.isEmpty() ? Component.translatable("virtual_mashine.option.iso.none") : Component.literal(iso),
+                iso -> null, iso -> {
                     config.iso = iso;
                     markDirty();
                 });
+        isoButton.setTooltip(Tooltip.create(Component.translatable("virtual_mashine.option.iso.tooltip")));
         addRenderableWidget(isoButton);
         y += ROW;
 
@@ -209,7 +215,7 @@ public class PcControlScreen extends PcScreen {
         addRenderableWidget(nicButton);
         y += ROW;
 
-        // Ready-made systems (OpenWrt, vJunos, cloud images) instead of installing from an ISO.
+        // Ready-made systems (Cisco IOS, OpenWrt, vJunos, cloud images) instead of installing from an ISO.
         List<String> imageValues = new ArrayList<>();
         imageValues.add("");
         imageValues.addAll(info.images());
@@ -217,15 +223,13 @@ public class PcControlScreen extends PcScreen {
             imageValues.add(config.diskImage);
         }
         builtImageList = List.copyOf(info.images());
-        imageButton = CycleButton.<String>builder(image -> info.diskExists()
-                        ? Component.translatable("virtual_mashine.option.image.created")
-                        : image.isEmpty() ? Component.translatable("virtual_mashine.option.image.none") : Component.literal(image), config.diskImage)
-                .withValues(imageValues)
-                .withTooltip(image -> Tooltip.create(Component.translatable("virtual_mashine.option.image.tooltip")))
-                .create(left, y, half, 20, Component.translatable("virtual_mashine.option.image"), (button, image) -> {
+        imageButton = new Dropdown<>(left, y, half, 20, Component.translatable("virtual_mashine.option.image"), imageValues, config.diskImage,
+                image -> image.isEmpty() ? Component.translatable("virtual_mashine.option.image.none") : Component.literal(image),
+                PcControlScreen::imageKind, image -> {
                     config.diskImage = image;
                     markDirty();
                 });
+        imageButton.setTooltip(Tooltip.create(Component.translatable("virtual_mashine.option.image.tooltip")));
         addRenderableWidget(imageButton);
         diskActionButton = addRenderableWidget(Button.builder(Component.empty(), b -> diskAction())
                 .bounds(right, y, half, 20).build());
@@ -371,6 +375,7 @@ public class PcControlScreen extends PcScreen {
         nicButton.active = hardwareEditable;
         diskSlider.active = off && !info.diskExists();
         imageButton.active = off && !info.diskExists() && !frozen;
+        imageButton.setOverride(info.diskExists() ? Component.translatable("virtual_mashine.option.image.created") : null);
         diskActionButton.active = off && !frozen && info.qemuFound() && isHost();
         String download = "phone".equals(config.type) ? "virtual_mashine.button.download_android" : "virtual_mashine.button.download_openwrt";
         diskActionButton.setMessage(Component.translatable(info.diskExists() ? "virtual_mashine.button.reset_disk" : download));
@@ -381,6 +386,11 @@ public class PcControlScreen extends PcScreen {
         }
         bootButton.active = !frozen;
         isoButton.active = !frozen && !"SAVING".equals(info.state());
+        for (Dropdown<?> dropdown : List.of(isoButton, imageButton)) {
+            if (!dropdown.active) {
+                dropdown.close();
+            }
+        }
 
         startButton.active = off && info.qemuFound();
         startButton.setMessage(Component.translatable(frozen ? "virtual_mashine.button.resume" : "virtual_mashine.button.start"));
@@ -424,7 +434,70 @@ public class PcControlScreen extends PcScreen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractRenderState(graphics, mouseX, mouseY, a);
+        Dropdown<?> dropdown = openDropdown();
+        // While a list is open, nothing underneath lights up or shows its tooltip.
+        super.extractRenderState(graphics, dropdown != null ? -1 : mouseX, dropdown != null ? -1 : mouseY, a);
+        extractTexts(graphics);
+        if (dropdown != null) {
+            dropdown.extractPopup(graphics, mouseX, mouseY, width, height);
+        }
+    }
+
+    // ---------------------------------------------------------------- open dropdown list gets the input first
+
+    private @Nullable Dropdown<?> openDropdown() {
+        if (isoButton != null && isoButton.isOpen()) {
+            return isoButton;
+        }
+        return imageButton != null && imageButton.isOpen() ? imageButton : null;
+    }
+
+    @Override
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupMouseClicked(event) : super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupMouseDragged(event) : super.mouseDragged(event, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupMouseReleased() : super.mouseReleased(event);
+    }
+
+    @Override
+    public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupMouseScrolled(scrollY) : super.mouseScrolled(x, y, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupKeyPressed(event) : super.keyPressed(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        Dropdown<?> dropdown = openDropdown();
+        return dropdown != null ? dropdown.popupCharTyped(event) : super.charTyped(event);
+    }
+
+    /** Gray note at the end of an image's row: what system it is. */
+    private static @Nullable Component imageKind(String image) {
+        CiscoImage cisco = CiscoImage.of(image);
+        if (cisco != null) {
+            return Component.literal("Cisco " + cisco.product);
+        }
+        return image.toLowerCase(Locale.ROOT).startsWith("openwrt") ? Component.literal("OpenWrt") : null;
+    }
+
+    private void extractTexts(GuiGraphicsExtractor graphics) {
         Component title = Component.translatable("virtual_mashine.screen.control", config.name);
         graphics.text(font, title, left, top + 4, WHITE);
         Component state = stateText();

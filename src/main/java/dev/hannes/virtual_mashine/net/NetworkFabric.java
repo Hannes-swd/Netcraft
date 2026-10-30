@@ -175,7 +175,12 @@ public final class NetworkFabric {
     }
 
     public void addSwitch(UUID device, int ports) {
-        switches.computeIfAbsent(device, id -> new LearningSwitch(ports));
+        addSwitch(device, ports, false);
+    }
+
+    /** @param hub repeat every frame on all other ports instead of learning addresses */
+    public void addSwitch(UUID device, int ports, boolean hub) {
+        switches.computeIfAbsent(device, id -> new LearningSwitch(ports, hub));
     }
 
     public boolean hasSwitch(UUID device) {

@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import dev.hannes.virtual_mashine.Virtual_mashine;
 import dev.hannes.virtual_mashine.client.screen.AccessPointScreen;
+import dev.hannes.virtual_mashine.client.screen.CableClipScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import dev.hannes.virtual_mashine.client.screen.IoModuleScreen;
 import dev.hannes.virtual_mashine.client.screen.PortScreen;
@@ -39,6 +40,14 @@ public class Virtual_mashineClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.PortView.TYPE, (payload, context) -> onPortView(payload, context.client()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.CableSync.TYPE, (payload, context) -> CableRenderer.setCables(payload.cables()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.HeldCable.TYPE, (payload, context) -> CableRenderer.setHeld(payload));
+        ClientPlayNetworking.registerGlobalReceiver(NetPayloads.ClipView.TYPE, (payload, context) -> {
+            Minecraft minecraft = context.client();
+            if (minecraft.screen instanceof CableClipScreen screen && screen.clipPos().equals(payload.pos())) {
+                screen.update(payload);
+            } else {
+                minecraft.setScreen(new CableClipScreen(payload));
+            }
+        });
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.WlanView.TYPE, (payload, context) -> {
             Minecraft minecraft = context.client();
             if (minecraft.screen instanceof WlanScreen screen && screen.deviceId().equals(payload.device())) {

@@ -9,6 +9,7 @@ import dev.hannes.virtual_mashine.device.CableType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.network.NetPayloads;
+import dev.hannes.virtual_mashine.vm.CiscoImage;
 import dev.hannes.virtual_mashine.vm.QemuLocator;
 import dev.hannes.virtual_mashine.vm.SerialLine;
 import dev.hannes.virtual_mashine.vm.VirtualMachine;
@@ -55,8 +56,17 @@ public final class NetworkManager {
     record Placed(DeviceType type, String dimension, BlockPos pos, Direction facing) {
     }
 
-    /** One end of a cable is plugged in, the player walks to the second device. */
-    private record Pending(PortRef port, DeviceType deviceType, String dimension, BlockPos pos, Direction facing, CableType cable, int color) {
+    /** One end of a cable is plugged in, the player walks to the second device (hanging it on clips on the way). */
+    private record Pending(PortRef port, DeviceType deviceType, String dimension, BlockPos pos, Direction facing, CableType cable, int color,
+                           List<Cable.Hook> hooks) {
+        List<Vec3> path() {
+            List<Vec3> points = new ArrayList<>();
+            points.add(DeviceGeometry.socket(deviceType, pos, facing, port.port()));
+            for (Cable.Hook hook : hooks) {
+                points.add(hook.point());
+            }
+            return points;
+        }
     }
 
     private final MinecraftServer server;
@@ -152,7 +162,7 @@ public final class NetworkManager {
         switch (type.kind) {
             case SWITCH -> {
                 if (!fabric.hasSwitch(id)) {
-                    fabric.addSwitch(id, type.ports);
+                    fabric.addSwitch(id, type.ports, type == DeviceType.HUB);
                     refreshLinks();
                 }
             }
@@ -691,7 +701,7 @@ public final class NetworkManager {
         Pending start = pending.get(player.getUUID());
         if (start == null) {
             pending.put(player.getUUID(), new Pending(port, placed.type, placed.dimension, placed.pos, placed.facing,
-                    item.cableType, CableItem.color(held)));
+                    item.cableType, CableItem.color(held), new ArrayList<>()));
             sendHeldCable(player);
             return "virtual_mashine.ports.msg.first_end";
         }
@@ -716,6 +726,7 @@ public final class NetworkManager {
         cable.color = start.color;
         cable.a = Cable.End.of(start.port, start.deviceType, start.dimension, start.pos, start.facing);
         cable.b = Cable.End.of(port, placed.type, placed.dimension, placed.pos, placed.facing);
+        cable.hooks = start.hooks.isEmpty() ? null : new ArrayList<>(start.hooks);
         if (cable.length() > start.cable.maxLength) {
             return "virtual_mashine.ports.msg.too_long";
         }
@@ -775,17 +786,119 @@ public final class NetworkManager {
         return false;
     }
 
+    // ---------------------------------------------------------------- cable clips
+
+    /**
+     * Right-click on a clip with a cable whose first end is plugged in: the cable now hangs from it.
+     * @return false if the player carries no half-plugged cable (the clip menu opens instead)
+     */
+    public boolean hookCable(ServerPlayer player, BlockPos clip, Vec3 point) {
+        Pending start = pending.get(player.getUUID());
+        if (start == null || heldCable(player).isEmpty()) {
+            return false;
+        }
+        String message;
+        if (!start.dimension.equals(dimensionOf(player.level()))) {
+            message = "virtual_mashine.ports.msg.other_dimension";
+        } else if (start.hooks.stream().anyMatch(hook -> hook.at(clip))) {
+            message = "virtual_mashine.clip.msg.already";
+        } else {
+            List<Vec3> path = start.path();
+            path.add(point);
+            if (Cable.length(path) > start.cable.maxLength) {
+                message = "virtual_mashine.ports.msg.too_long";
+            } else {
+                start.hooks.add(Cable.Hook.of(clip.immutable(), point));
+                sendHeldCable(player);
+                message = "virtual_mashine.clip.msg.hooked";
+            }
+        }
+        player.sendOverlayMessage(Component.translatable(message));
+        return true;
+    }
+
+    public void openClipView(ServerPlayer player, BlockPos clip, String message) {
+        String dimension = dimensionOf(player.level());
+        List<NetPayloads.ClipCable> list = new ArrayList<>();
+        for (Cable cable : cables) {
+            if (cable.a.dimension.equals(dimension) && cable.hangsOn(clip)) {
+                list.add(new NetPayloads.ClipCable(cable.id, endLabel(cable.a), endLabel(cable.b), cable.type, cable.color));
+            }
+        }
+        ServerPlayNetworking.send(player, new NetPayloads.ClipView(clip.immutable(), list, message));
+    }
+
+    private String endLabel(Cable.End end) {
+        return deviceName(end.device, end.type()) + " · " + portLabel(end.device, end.type(), end.port);
+    }
+
+    /** "Aushängen" in the clip menu: the cable leaves the clip and runs straight on, still plugged in. */
+    public void handleClipAction(ServerPlayer player, NetPayloads.ClipAction action) {
+        if (player.distanceToSqr(Vec3.atCenterOf(action.pos())) > REACH * REACH) {
+            return;
+        }
+        String dimension = dimensionOf(player.level());
+        String message = "";
+        for (Cable cable : cables) {
+            if (cable.id.equals(action.cable()) && cable.a.dimension.equals(dimension) && cable.hangsOn(action.pos())) {
+                unhook(cable, action.pos());
+                save();
+                broadcastCables();
+                message = "virtual_mashine.clip.msg.unhooked";
+            }
+        }
+        openClipView(player, action.pos(), message);
+    }
+
+    /** The clip block is gone: every cable on it (and every cable being laid through it) runs straight on. */
+    public void clipRemoved(ServerLevel level, BlockPos clip) {
+        String dimension = dimensionOf(level);
+        boolean changed = false;
+        for (Cable cable : cables) {
+            if (cable.a.dimension.equals(dimension) && cable.hangsOn(clip)) {
+                unhook(cable, clip);
+                changed = true;
+            }
+        }
+        if (changed) {
+            save();
+            broadcastCables();
+        }
+        for (Map.Entry<UUID, Pending> entry : pending.entrySet()) {
+            Pending start = entry.getValue();
+            if (start.dimension.equals(dimension) && start.hooks.removeIf(hook -> hook.at(clip))) {
+                ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+                if (player != null) {
+                    sendHeldCable(player);
+                }
+            }
+        }
+    }
+
+    /** Takes the cable off the clip; a shorter cable can be faster, so the link is set up again if needed. */
+    private void unhook(Cable cable, BlockPos clip) {
+        int speedBefore = cable.cableType().speedMbit(cable.length());
+        cable.hooks.removeIf(hook -> hook.at(clip));
+        if (cable.hooks.isEmpty()) {
+            cable.hooks = null;
+        }
+        if (cable.cableType().isNetwork() && cable.cableType().speedMbit(cable.length()) != speedBefore) {
+            fabric.disconnect(cable.a.ref());
+            wire(cable);
+            refreshLinks();
+        }
+    }
+
     private NetPayloads.PortView portView(ServerPlayer player, UUID id, DeviceType type, BlockPos pos, boolean open, String message) {
         long now = System.nanoTime();
         Pending start = pending.get(player.getUUID());
-        String role = type.isVm() ? vms.provisionOf(id) : "";
         List<NetPayloads.PortInfo> ports = new ArrayList<>(type.totalPorts());
         for (int i = 0; i < type.totalPorts(); i++) {
             PortRef port = new PortRef(id, i);
             boolean console = type.isConsolePort(i);
             boolean usb = type.isUsbPort(i);
             boolean hdmi = type.isHdmiPort(i);
-            String name = portLabel(type, i, role);
+            String name = portLabel(id, type, i);
             String mac = type.isVm() && !console && !usb && !hdmi ? DeviceMac.of(id, i) : "";
             Cable cable = cableAt(port);
             NetworkFabric.PortStats stats = fabric.stats(port);
@@ -801,7 +914,7 @@ public final class NetworkManager {
             }
             if (cable != null) {
                 Cable.End other = cable.otherEnd(port);
-                String peer = deviceName(other.device, other.type()) + " · " + other.type().portName(other.port);
+                String peer = deviceName(other.device, other.type()) + " · " + portLabel(other.device, other.type(), other.port);
                 boolean link = console ? consoleLink(port, cable) : usb ? usbLink(port, cable)
                         : hdmi ? hdmiLink(port, cable) : fabric.hasLink(port);
                 int speed = link ? cable.cableType().speedMbit(cable.length()) : 0;
@@ -816,15 +929,25 @@ public final class NetworkManager {
         }
         ItemStack held = heldCable(player);
         String heldType = held.isEmpty() ? "" : ((CableItem) held.getItem()).cableType.id;
-        String pendingText = start == null ? "" : deviceName(start.port.device(), start.deviceType) + " · " + start.deviceType.portName(start.port.port());
+        String pendingText = start == null ? "" : deviceName(start.port.device(), start.deviceType) + " · " + portLabel(start.port.device(), start.deviceType, start.port.port());
         return new NetPayloads.PortView(id, pos, type.id, deviceName(id, type), isPowered(id, type), open, ports, heldType, pendingText,
                 message, false);
     }
 
-    /** Port name, with the role OpenWrt gave it after the automatic set-up. */
-    private static String portLabel(DeviceType type, int port, String role) {
+    /**
+     * Port name: the interface name on Cisco IOS ("Gi0/1"), with the role OpenWrt gave it after the
+     * automatic set-up ("eth1 WAN"), otherwise as printed on the housing.
+     */
+    private String portLabel(UUID id, DeviceType type, int port) {
         String name = type.portName(port);
-        if (role.equals("router") && !type.isConsolePort(port) && !type.isUsbPort(port) && !type.isHdmiPort(port)) {
+        if (!type.isVm() || type.isConsolePort(port) || type.isUsbPort(port) || type.isHdmiPort(port)) {
+            return name;
+        }
+        CiscoImage cisco = vms.ciscoOf(id);
+        if (cisco != null) {
+            return cisco.interfaceName(port);
+        }
+        if (vms.provisionOf(id).equals("router")) {
             return name + (port == 1 ? " WAN" : " LAN");
         }
         return name;
@@ -836,6 +959,7 @@ public final class NetworkManager {
         }
         String kind = switch (type) {
             case SWITCH -> "Switch";
+            case HUB -> "Hub";
             case MODEM -> "Modem";
             case MICROPHONE -> "Mikrofon";
             case CAMERA -> "Kamera";
@@ -901,11 +1025,10 @@ public final class NetworkManager {
     private void sendHeldCable(ServerPlayer player) {
         Pending start = pending.get(player.getUUID());
         if (start == null) {
-            ServerPlayNetworking.send(player, new NetPayloads.HeldCable(false, 0, 0, 0, 0));
+            ServerPlayNetworking.send(player, NetPayloads.HeldCable.NONE);
             return;
         }
-        Vec3 socket = DeviceGeometry.socket(start.deviceType, start.pos, start.facing, start.port.port());
-        ServerPlayNetworking.send(player, new NetPayloads.HeldCable(true, socket.x, socket.y, socket.z, start.color));
+        ServerPlayNetworking.send(player, new NetPayloads.HeldCable(true, start.path(), start.color));
     }
 
     private void broadcastCables() {
@@ -919,9 +1042,7 @@ public final class NetworkManager {
         List<NetPayloads.CableVisual> visuals = new ArrayList<>();
         for (Cable cable : cables) {
             if (cable.a.dimension.equals(dimension)) {
-                Vec3 a = DeviceGeometry.socket(cable.a);
-                Vec3 b = DeviceGeometry.socket(cable.b);
-                visuals.add(new NetPayloads.CableVisual(a.x, a.y, a.z, b.x, b.y, b.z, cable.color));
+                visuals.add(new NetPayloads.CableVisual(cable.path(), cable.color));
             }
         }
         ServerPlayNetworking.send(player, new NetPayloads.CableSync(visuals));

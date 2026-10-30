@@ -5,8 +5,8 @@ import java.util.Map;
 
 /**
  * An unmanaged Ethernet switch: learns which MAC address sits behind which port and floods
- * broadcasts and unknown destinations, exactly like a cheap desktop switch. Only used on the
- * fabric thread.
+ * broadcasts and unknown destinations, exactly like a cheap desktop switch. As a hub it learns
+ * nothing and repeats every frame on all other ports. Only used on the fabric thread.
  */
 final class LearningSwitch {
     private static final long AGING_NANOS = 300L * 1_000_000_000L;
@@ -16,16 +16,22 @@ final class LearningSwitch {
     }
 
     private final int ports;
+    /** Hub: a plain repeater, every frame (STP and the like included) leaves through every other port. */
+    private final boolean hub;
     private final Map<Long, Entry> table = new HashMap<>();
 
-    LearningSwitch(int ports) {
+    LearningSwitch(int ports, boolean hub) {
         this.ports = ports;
+        this.hub = hub;
     }
 
     /** Ports the frame that arrived on {@code inPort} has to leave through. */
     int[] forward(int inPort, byte[] frame) {
         if (frame.length < 14) {
             return NONE;
+        }
+        if (hub) {
+            return flood(inPort);
         }
         long now = System.nanoTime();
         long destination = mac(frame, 0);
@@ -43,6 +49,10 @@ final class LearningSwitch {
                 return known.port == inPort ? NONE : new int[]{known.port};
             }
         }
+        return flood(inPort);
+    }
+
+    private int[] flood(int inPort) {
         int[] flood = new int[ports - 1];
         for (int port = 0, i = 0; port < ports; port++) {
             if (port != inPort) {

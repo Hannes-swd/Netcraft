@@ -14,16 +14,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Copies ISO files dropped onto a PC screen into the ISO folder. */
+/** Copies ISO files and disk images (e.g. Cisco IOSv) dropped onto a PC screen into the ISO folder. */
 public final class IsoImport {
     private static final SystemToast.SystemToastId TOAST = new SystemToast.SystemToastId(6000L);
+    private static final List<String> ENDINGS = List.of(".iso", ".qcow2", ".img", ".img.gz", ".raw", ".vmdk", ".vdi", ".vhd", ".vhdx");
 
     private IsoImport() {
     }
 
     public static void importDropped(List<Path> files, String isoFolder, UUID pcId) {
         List<Path> isos = files.stream()
-                .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".iso"))
+                .filter(path -> ENDINGS.stream().anyMatch(path.getFileName().toString().toLowerCase(Locale.ROOT)::endsWith))
                 .toList();
         if (isos.isEmpty() || isoFolder.isEmpty()) {
             toast(Component.translatable("virtual_mashine.import.not_iso"), null);

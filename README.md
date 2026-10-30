@@ -15,6 +15,7 @@ QEMU laufen. Das **Gastsystem** ist das Betriebssystem innerhalb einer virtuelle
 | Windows, Linux oder macOS | Hostsysteme: Die Mod sucht QEMU an den üblichen Installationsorten und im `PATH`. QEMU muss `qemu-system-x86_64` enthalten. |
 | x86-64-Betriebssysteme, die unter QEMU laufen | Eigene VM-Gäste: ISO-Datei einlegen oder ein unterstütztes Festplatten-Image verwenden. Ob ein System funktioniert, hängt auch von dessen QEMU- und Hardware-Anforderungen ab. |
 | Android-x86 9.0-r2 | Vorgefertigtes Handysystem. Die Mod kann das ISO herunterladen, die Prüfsumme prüfen und Android auf der virtuellen Festplatte installieren. |
+| Cisco IOSv / IOSvL2 | Router / Switch mit echtem Cisco IOS. Die Images bringst du selbst mit (z. B. aus Cisco Modeling Labs – Free); die Mod erkennt sie und gibt ihnen passende Hardware. |
 | OpenWrt x86-64 | Vorgefertigtes Router-/Switch-System. Die Mod lädt das aktuelle stabile Image samt SHA-256-Prüfung und kann es für Router oder Managed Switches einrichten. |
 | Debian mit Firefox | Vorgesehenes Kiosk-System für Netzwerk-Displays. Das Festplatten-Image `netz-display.qcow2` muss im ISO-Ordner vorhanden sein; es wird nicht mit der Mod ausgeliefert. |
 | Debian oder Ubuntu | Für den optionalen Linux-Treiber der virtuellen Kamera gibt es ein Installationsskript unter [`guest/netz-media`](guest/netz-media). |
@@ -86,7 +87,7 @@ Ordner `vm_isos/` neben dem Minecraft-Spiel liegen. Unterstützte Image-Endungen
 
 ## Netzwerke bauen
 
-Creative-Tabs: **Endgeräte** (PC, Laptop, Server), **Netzwerkgeräte** (Switch, Managed Switch, Router,
+Creative-Tabs: **Endgeräte** (PC, Laptop, Server), **Netzwerkgeräte** (Switch, Hub, Managed Switch, Router,
 Access Point), **Internet** (Internet-Anschluss) und **Kabel & Werkzeug**.
 
 | Gerät | Was es ist | Ports |
@@ -96,8 +97,9 @@ Access Point), **Internet** (Internet-Anschluss) und **Kabel & Werkzeug**.
 | Handy | Android (Item, kein Block) – nur WLAN, misst das Signal dort, wo du stehst | wlan |
 | Server | wie ein PC, startet automatisch mit der Welt | eth0, eth1, COM1 |
 | Switch (einfach) | echter lernender Switch in der Mod, keine Einrichtung nötig | 8 |
-| Managed Switch | VM für echte Switch-Software (z. B. OpenWrt per Knopfdruck, VyOS) | 8 + Console |
-| Router | VM für echte Router-Software (OpenWrt per Knopfdruck, VyOS, OPNsense …) | eth0–eth3 + Console |
+| Hub | lernt nichts, schickt jedes Paket an alle anderen Ports (gut zum Mitschneiden mit Wireshark) | 8 |
+| Managed Switch | VM für echte Switch-Software (Cisco IOSvL2, OpenWrt per Knopfdruck, VyOS) | 8 + Console |
+| Router | VM für echte Router-Software (Cisco IOSv, OpenWrt per Knopfdruck, VyOS, OPNsense …) | eth0–eth3 + Console |
 | Access Point | WLAN mit SSID und WPA2-Passwort, LAN-Port zum Switch/Router | LAN |
 | Internet-Anschluss | echtes Internet mit DHCP und NAT (192.168.178.x) | LAN |
 
@@ -107,6 +109,12 @@ ebenfalls. Abziehen: Schleichen + Rechtsklick, belegten Port anklicken – das B
 echtes „Kabel gezogen“. LEDs am Gerät: grün = Link, orange = Datenverkehr. Farbe: Schleichen + Rechtsklick
 in die Luft. **Netzwerk-Tester:** zeigt Geschwindigkeit, MAC-Adresse und Datenverkehr jedes Ports.
 
+**Kabelhalter:** an jede Blockseite setzen (Wand, Boden, Decke). Erstes Kabelende einstecken, dann mit dem
+Kabel in der Hand nacheinander die Halter rechtsklicken – das Kabel läuft über sie wie mit Kabelbindern
+verlegt – und zum Schluss das zweite Gerät anschließen. Die Länge zählt über alle Halter. Rechtsklick ohne
+Kabel zeigt alle Kabel am Halter (von/nach); „Aushängen“ nimmt eines ab, es bleibt aber eingesteckt.
+Wird ein Halter abgebaut, laufen seine Kabel einfach gerade weiter.
+
 **OpenWrt per Knopfdruck:** Bei einem Router oder Managed Switch mit leerer Festplatte „OpenWrt laden“
 drücken, dann starten. Die Mod lädt die aktuelle OpenWrt-Version (Prüfsumme wird kontrolliert) und richtet
 sie beim ersten Start über die Konsole ein:
@@ -115,7 +123,17 @@ sie beim ersten Start über die Konsole ein:
 
 Danach ist es ein ganz normales OpenWrt: Weboberfläche LuCI (z. B. http://192.168.1.1 vom PC aus),
 SSH oder Konsolenkabel. Eigene Festplatten-Images (.qcow2, .img, .img.gz, .raw, .vmdk, .vdi, .vhd, .vhdx) legst du
-in den ISO-Ordner und wählst sie unter „Image“.
+in den ISO-Ordner (oder ziehst sie aufs Fenster) und wählst sie im Dropdown „Image“ – Tippen filtert die Liste.
+
+**Cisco IOS (IOSv / IOSvL2):** Die Images von Cisco (z. B. `vios-adventerprisek9-m.spa.159-3.m8.qcow2` und
+`vios_l2-adventerprisek9-m.ssa.high_iron_20200929.qcow2`) sind nicht frei weitergebbar und werden deshalb
+**nicht** mitgeliefert oder heruntergeladen. Legal bekommst du sie z. B. mit **Cisco Modeling Labs – Free**
+(kostenloser Cisco-Account, die Images liegen im „refplat“-ISO). Liegen sie im ISO-Ordner, sind sie Standard:
+neue Router bekommen IOSv, neue Managed Switches IOSvL2 (OpenWrt ist weiter über „OpenWrt laden“ oder das
+Image-Dropdown wählbar). Die Mod gibt ihnen die Hardware wie in CML (virtio-Festplatte, e1000-Karten, mind.
+512 MB bzw. 768 MB RAM), die Ports heißen dann wie in IOS: Router `Gi0/0`–`Gi0/3`, Switch `Gi0/0`–`Gi0/3`,
+`Gi1/0`–`Gi1/3`. Eingerichtet wird nichts – das Gerät startet ab Werk wie ein echtes. Bedienung über die
+Konsole: Konsolenkabel vom Console-Port zu COM1 eines PCs, dort z. B. PuTTY oder `minicom -D /dev/ttyS0`.
 
 **WLAN:** Access Point per Kabel an Switch/Router hängen, im Laptop-Menü „WLAN“ das Netz wählen und das
 Passwort aus dem Access-Point-Menü eingeben. Entfernung und Wände (Stein stark, Holz mittel, Glas kaum)
