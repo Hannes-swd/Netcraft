@@ -303,13 +303,15 @@ public class PcDisplayScreen extends PcScreen {
 
     // ---------------------------------------------------------------- rendering
 
+    /** The black background is filled at the start of {@link #render}: 1.21.1's Screen.render paints the
+     *  background itself before the widgets, which would cover the guest picture drawn before it. */
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float a) {
-        graphics.fill(0, 0, width, height, 0xFF000000);
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        graphics.fill(0, 0, width, height, 0xFF000000);
         RfbClient vnc = client;
         if (vnc != null) {
             texture.update(vnc);

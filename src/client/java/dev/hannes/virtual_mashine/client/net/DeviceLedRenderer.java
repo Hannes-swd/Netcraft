@@ -6,6 +6,7 @@ import dev.hannes.virtual_mashine.Virtual_mashine;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
 import dev.hannes.virtual_mashine.client.display.DisplayManager;
+import dev.hannes.virtual_mashine.client.display.ScreenRenderType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.net.DeviceGeometry;
 import net.minecraft.client.renderer.LightTexture;
@@ -95,7 +96,7 @@ public final class DeviceLedRenderer implements BlockEntityRenderer<DeviceBlockE
         float rx = right.getStepX() * width;
         float rz = right.getStepZ() * width;
         float h = height;
-        VertexConsumer buffer = buffers.getBuffer(RenderType.text(screen));
+        VertexConsumer buffer = buffers.getBuffer(ScreenRenderType.of(screen));
         PoseStack.Pose pose = poseStack.last();
         // Counter-clockwise as seen from the front: bottom left, bottom right, top right, top left.
         screenVertex(buffer, pose, bx, 0, bz, 0, 1);
@@ -106,7 +107,7 @@ public final class DeviceLedRenderer implements BlockEntityRenderer<DeviceBlockE
 
 
     private static void screenVertex(VertexConsumer buffer, PoseStack.Pose pose, float x, float y, float z, float u, float v) {
-        buffer.addVertex(pose, x, y, z).setColor(0xFFFFFFFF).setUv(u, v).setLight(LightTexture.FULL_BRIGHT);
+        buffer.addVertex(pose, x, y, z).setUv(u, v);
     }
 
     /** A tiny glowing square on the face, facing outwards. */
