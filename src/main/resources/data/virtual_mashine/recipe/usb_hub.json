@@ -6,9 +6,9 @@
     "IRI"
   ],
   "key": {
-    "N": "minecraft:iron_nugget",
-    "I": "minecraft:iron_ingot",
-    "R": "minecraft:repeater"
+    "N": {"item": "minecraft:iron_nugget"},
+    "I": {"item": "minecraft:iron_ingot"},
+    "R": {"item": "minecraft:repeater"}
   },
   "result": {
     "id": "virtual_mashine:usb_hub",

@@ -9,7 +9,7 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.item.NetworkTesterItem;
 import dev.hannes.virtual_mashine.item.PhoneItem;
-import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
@@ -82,14 +82,14 @@ public final class ModRegistry {
         }
     }
 
-    public static final Block CABLE_CLIP_BLOCK = Blocks.register(ResourceKey.create(Registries.BLOCK, Virtual_mashine.id("cable_clip")),
-            CableClipBlock::new, BlockBehaviour.Properties.of()
+    public static final Block CABLE_CLIP_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("cable_clip"),
+            new CableClipBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_GRAY)
                     .strength(0.3F)
                     .sound(SoundType.STONE)
-                    .noCollision()
-                    .noOcclusion());
-    public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties.useBlockDescriptionPrefix()));
+                    .noCollission()
+                    .noOcclusion()));
+    public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties));
 
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
@@ -123,7 +123,7 @@ public final class ModRegistry {
 
     private static void tab(String name, Item icon, Item... items) {
         ResourceKey<CreativeModeTab> key = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id(name));
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricCreativeModeTab.builder()
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricItemGroup.builder()
                 .title(Component.translatable("itemGroup.virtual_mashine." + name))
                 .icon(() -> new ItemStack(icon))
                 .displayItems((parameters, output) -> {
@@ -135,8 +135,7 @@ public final class ModRegistry {
     }
 
     private static Block device(DeviceType type, VoxelShape shape, MapColor color, int light) {
-        ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, Virtual_mashine.id(type.id));
-        Block block = Blocks.register(blockKey, properties -> new DeviceBlock(type, shape, properties),
+        Block block = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id(type.id), new DeviceBlock(type, shape,
                 BlockBehaviour.Properties.of()
                         .mapColor(color)
                         .strength(2.0F, 6.0F)
@@ -145,17 +144,14 @@ public final class ModRegistry {
                         .noOcclusion()
                         // Not a conductor: an I/O module's faces carry exactly their own channel, nothing passes through.
                         .isRedstoneConductor((state, level, pos) -> false)
-                        .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? light : 0));
-        ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Virtual_mashine.id(type.id));
-        Item item = Registry.register(BuiltInRegistries.ITEM, itemKey,
-                new BlockItem(block, new Item.Properties().setId(itemKey).useBlockDescriptionPrefix()));
+                        .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? light : 0)));
+        Item item = Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(type.id), new BlockItem(block, new Item.Properties()));
         DEVICE_BLOCKS.put(type, block);
         DEVICE_ITEMS.put(type, item);
         return block;
     }
 
     private static Item item(String name, Function<Item.Properties, Item> factory) {
-        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, Virtual_mashine.id(name));
-        return Registry.register(BuiltInRegistries.ITEM, key, factory.apply(new Item.Properties().setId(key)));
+        return Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(name), factory.apply(new Item.Properties()));
     }
 }

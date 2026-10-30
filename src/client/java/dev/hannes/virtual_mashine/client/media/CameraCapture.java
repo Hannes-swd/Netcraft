@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexSorting;
 import dev.hannes.virtual_mashine.Virtual_mashine;
 import dev.hannes.virtual_mashine.mixin.client.CameraAccessor;
 import dev.hannes.virtual_mashine.mixin.client.LevelRendererAccessor;
@@ -12,18 +13,15 @@ import dev.hannes.virtual_mashine.network.MediaPayloads;
 import dev.hannes.virtual_mashine.vm.ModConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Camera;
-import net.minecraft.client.CameraType;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.TextureFilteringMethod;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.state.GameRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.jspecify.annotations.Nullable;
 
 import javax.imageio.IIOImage;
@@ -124,14 +122,13 @@ public final class CameraCapture {
 
     private static void render(Minecraft minecraft, Job job) {
         if (target == null) {
-            target = new TextureTarget("virtual_mashine camera", WIDTH, HEIGHT, true);
+            target = new TextureTarget(WIDTH, HEIGHT, true, Minecraft.ON_OSX);
         }
         TextureTarget picture = target;
         GameRenderer renderer = minecraft.gameRenderer;
         Camera camera = renderer.getMainCamera();
         CameraAccessor lens = (CameraAccessor) camera;
-        LevelRendererAccessor level = (LevelRendererAccessor) minecraft.levelRenderer;
-        DeltaTracker delta = minecraft.getDeltaTracker();
+        DeltaTracker delta = minecraft.getTimer();
         RenderTarget main = minecraft.getMainRenderTarget();
 
         Direction facing = job.facing();
@@ -140,42 +137,35 @@ public final class CameraCapture {
         lens.virtual_mashine$setPosition(eye);
         lens.virtual_mashine$setRotation(facing.toYRot(), 0.0F);
         lens.virtual_mashine$setDetached(true); // so the player in front of the camera is drawn
-        camera.enablePanoramicMode(); // no hand, no screen effects, no outlines
-        float depthFar = lens.virtual_mashine$depthFar();
-        Matrix4f view = camera.getViewRotationMatrix(new Matrix4f());
-        Matrix4f cull = new Matrix4f().perspective(FOV * (float) (Math.PI / 180.0), (float) WIDTH / HEIGHT, 0.05F, depthFar,
-                RenderSystem.getDevice().isZZeroToOne());
-        lens.virtual_mashine$prepareCullFrustum(view, cull, eye);
-        lens.virtual_mashine$setupPerspective(0.05F, depthFar, FOV, WIDTH, HEIGHT);
-        // The chunk sections the player's game knows, cut to what the camera looks at.
-        level.virtual_mashine$applyFrustum(LevelRenderer.offsetFrustum(camera.getCullFrustum()));
+        Matrix4f projection = new Matrix4f().perspective(FOV * (float) (Math.PI / 180.0), (float) WIDTH / HEIGHT, 0.05F,
+                renderer.getDepthFar());
+        Matrix4f view = new Matrix4f().rotation(camera.rotation().conjugate(new Quaternionf()));
+        RenderSystem.backupProjectionMatrix();
+        RenderSystem.setProjectionMatrix(projection, VertexSorting.DISTANCE_TO_ORIGIN);
         renderer.setRenderBlockOutline(false);
         ((MinecraftAccessor) minecraft).virtual_mashine$setMainRenderTarget(picture);
+        picture.bindWrite(true);
         try {
-            renderer.extract(delta, true);
-            GameRenderState state = renderer.getGameRenderState();
-            state.optionsRenderState.bobView = false;
-            state.optionsRenderState.cameraType = CameraType.THIRD_PERSON_BACK;
-            state.levelRenderState.haveGlowingEntities = false;
-            state.levelRenderState.cameraRenderState.entityRenderState.isLiving = false; // no hurt tilt
-            renderer.getGlobalSettingsUniform().update(WIDTH, HEIGHT, state.optionsRenderState.glintStrength,
-                    minecraft.level.getGameTime(), delta, 0, eye, state.optionsRenderState.textureFiltering == TextureFilteringMethod.RGSS);
-            renderer.renderLevel(delta);
-            UUID cameraId = job.camera();
-            Screenshot.takeScreenshot(picture, image -> encode(cameraId, image));
+            // The level only, without hand, view bobbing or screen effects (those belong to GameRenderer.renderLevel).
+            minecraft.levelRenderer.prepareCullFrustum(eye, view, projection);
+            minecraft.levelRenderer.renderLevel(delta, false, camera, renderer, renderer.lightTexture(), view, projection);
+            NativeImage image = Screenshot.takeScreenshot(picture);
+            encode(job.camera(), image);
         } finally {
             ((MinecraftAccessor) minecraft).virtual_mashine$setMainRenderTarget(main);
-            camera.disablePanoramicMode();
+            main.bindWrite(true);
+            RenderSystem.restoreProjectionMatrix();
             renderer.setRenderBlockOutline(true);
             // The frame drawn next aligns the camera with the player again; make it pick its own sections too.
-            level.virtual_mashine$setPrevCamRotX(Double.NaN);
+            ((LevelRendererAccessor) minecraft.levelRenderer).virtual_mashine$setPrevCamRotX(Double.NaN);
         }
     }
+
 
     private static void encode(UUID camera, NativeImage image) {
         int[] pixels;
         try (image) {
-            pixels = image.getPixels();
+            pixels = image.makePixelArray();
         } catch (RuntimeException e) {
             BUSY.set(false);
             throw e;

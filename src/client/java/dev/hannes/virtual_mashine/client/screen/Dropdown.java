@@ -2,17 +2,15 @@ package dev.hannes.virtual_mashine.client.screen;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.InputWithModifiers;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
+import dev.hannes.virtual_mashine.client.input.CharacterEvent;
+import dev.hannes.virtual_mashine.client.input.KeyEvent;
+import dev.hannes.virtual_mashine.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -30,8 +28,8 @@ import java.util.function.Function;
  * mouse and key events to {@link #popupMouseClicked} and friends first while {@link #isOpen()}.
  */
 final class Dropdown<T> extends AbstractButton {
-    private static final Identifier SCROLLER = Identifier.withDefaultNamespace("widget/scroller");
-    private static final Identifier SCROLLER_BACKGROUND = Identifier.withDefaultNamespace("widget/scroller_background");
+    private static final ResourceLocation SCROLLER = ResourceLocation.withDefaultNamespace("widget/scroller");
+    private static final ResourceLocation SCROLLER_BACKGROUND = ResourceLocation.withDefaultNamespace("widget/scroller_background");
     private static final int ROW = 12;
     private static final int MAX_ROWS = 10;
     private static final int SCROLLBAR = 6;
@@ -112,7 +110,7 @@ final class Dropdown<T> extends AbstractButton {
     }
 
     @Override
-    public void onPress(InputWithModifiers input) {
+    public void onPress() {
         if (open) {
             close();
             return;
@@ -155,19 +153,21 @@ final class Dropdown<T> extends AbstractButton {
     // ---------------------------------------------------------------- the button
 
     @Override
-    protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        extractDefaultSprite(graphics);
-        int textRight = getX() + getWidth() - 12;
-        graphics.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE)
-                .acceptScrollingWithDefaultCenter(getMessage(), getX() + 4, textRight, getY(), getY() + getHeight());
+    protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.renderWidget(graphics, mouseX, mouseY, a); // the vanilla button, its text through renderString below
         // A small triangle like ▼ (▲ while open), drawn with lines so every font has it.
         int color = active ? 0xFFFFFFFF : 0xFFA0A0A0;
         int cx = getX() + getWidth() - 8;
         int cy = getY() + getHeight() / 2 - 1;
         for (int i = 0; i < 3; i++) {
             int row = open ? cy + 1 - i : cy - 1 + i;
-            graphics.horizontalLine(cx - 2 + i, cx + 2 - i, row, color);
+            graphics.hLine(cx - 2 + i, cx + 2 - i, row, color);
         }
+    }
+
+    @Override
+    public void renderString(GuiGraphics graphics, Font font, int color) {
+        renderScrollingString(graphics, font, getMessage(), getX() + 4, getY(), getX() + getWidth() - 12, getY() + getHeight(), color);
     }
 
     @Override
@@ -178,11 +178,13 @@ final class Dropdown<T> extends AbstractButton {
     // ---------------------------------------------------------------- the open list
 
     /** Draws the open list above everything else of the screen. */
-    void extractPopup(GuiGraphicsExtractor graphics, int mouseX, int mouseY, int screenWidth, int screenHeight) {
+    void extractPopup(GuiGraphics graphics, int mouseX, int mouseY, int screenWidth, int screenHeight) {
         if (!open) {
             return;
         }
-        graphics.nextStratum();
+        // In front of every widget of the screen.
+        graphics.pose().pushPose();
+        graphics.pose().translate(0.0F, 0.0F, 400.0F);
         int widest = getWidth();
         for (T candidate : shown) {
             Component extra = hint.apply(candidate);
@@ -208,14 +210,14 @@ final class Dropdown<T> extends AbstractButton {
         // Search line.
         String search = filter.isEmpty() ? Component.translatable("virtual_mashine.dropdown.search").getString()
                 : filter + ((System.currentTimeMillis() / 400) % 2 == 0 ? "_" : "");
-        graphics.text(font, font.plainSubstrByWidth(search, popupW - 8, filter.length() > 0), popupX + 4, popupY + 4,
+        graphics.drawString(font, font.plainSubstrByWidth(search, popupW - 8, filter.length() > 0), popupX + 4, popupY + 4,
                 filter.isEmpty() ? 0xFF707070 : 0xFFFFFFFF, false);
-        graphics.horizontalLine(popupX + 1, popupX + popupW - 2, popupY + searchH, 0xFF404040);
+        graphics.hLine(popupX + 1, popupX + popupW - 2, popupY + searchH, 0xFF404040);
 
         rowsY = popupY + searchH + 2;
         int listRight = popupX + popupW - 2 - (shown.size() > visibleRows ? SCROLLBAR + 1 : 0);
         if (shown.isEmpty()) {
-            graphics.text(font, Component.translatable("virtual_mashine.dropdown.nothing"), popupX + 4, rowsY + 2, 0xFF808080, false);
+            graphics.drawString(font, Component.translatable("virtual_mashine.dropdown.nothing"), popupX + 4, rowsY + 2, 0xFF808080, false);
         }
         int hovered = rowAt(mouseX, mouseY);
         for (int i = 0; i < visibleRows && scroll + i < shown.size(); i++) {
@@ -227,7 +229,7 @@ final class Dropdown<T> extends AbstractButton {
                 graphics.fill(popupX + 2, top, listRight, top + ROW, 0xFF3A3A3A);
             }
             if (selected) {
-                graphics.outline(popupX + 2, top, listRight - popupX - 2, ROW, 0xFFFFFFFF);
+                graphics.renderOutline(popupX + 2, top, listRight - popupX - 2, ROW, 0xFFFFFFFF);
             }
             Component extra = hint.apply(candidate);
             int extraW = extra != null ? font.width(extra) + 6 : 0;
@@ -236,19 +238,20 @@ final class Dropdown<T> extends AbstractButton {
             if (font.width(text) > textW) {
                 text = font.plainSubstrByWidth(text, textW - font.width("…")) + "…";
             }
-            graphics.text(font, text, popupX + 5, top + 2, selected ? 0xFFFFFF55 : 0xFFE0E0E0, false);
+            graphics.drawString(font, text, popupX + 5, top + 2, selected ? 0xFFFFFF55 : 0xFFE0E0E0, false);
             if (extra != null) {
-                graphics.text(font, extra, listRight - extraW + 2, top + 2, 0xFF8A8A8A, false);
+                graphics.drawString(font, extra, listRight - extraW + 2, top + 2, 0xFF8A8A8A, false);
             }
         }
         if (shown.size() > visibleRows) {
             int barX = popupX + popupW - 2 - SCROLLBAR;
             int trackH = visibleRows * ROW;
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER_BACKGROUND, barX, rowsY, SCROLLBAR, trackH);
+            graphics.blitSprite(SCROLLER_BACKGROUND, barX, rowsY, SCROLLBAR, trackH);
             int thumbH = Math.max(8, trackH * visibleRows / shown.size());
             int thumbY = rowsY + (trackH - thumbH) * scroll / Math.max(1, shown.size() - visibleRows);
-            graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER, barX, thumbY, SCROLLBAR, thumbH);
+            graphics.blitSprite(SCROLLER, barX, thumbY, SCROLLBAR, thumbH);
         }
+        graphics.pose().popPose();
     }
 
     /** Index into {@link #shown} under the mouse, or -1. */

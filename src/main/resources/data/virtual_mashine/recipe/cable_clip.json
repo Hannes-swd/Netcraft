@@ -5,8 +5,8 @@
     "NSN"
   ],
   "key": {
-    "N": "minecraft:iron_nugget",
-    "S": "minecraft:string"
+    "N": {"item": "minecraft:iron_nugget"},
+    "S": {"item": "minecraft:string"}
   },
   "result": {
     "id": "virtual_mashine:cable_clip",

@@ -11,13 +11,13 @@ import dev.hannes.virtual_mashine.network.PcActionPayload;
 import dev.hannes.virtual_mashine.network.PcInfoPayload;
 import dev.hannes.virtual_mashine.vm.VmConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
+import dev.hannes.virtual_mashine.client.input.CharacterEvent;
+import dev.hannes.virtual_mashine.client.input.KeyEvent;
+import dev.hannes.virtual_mashine.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -142,11 +142,11 @@ public class PcDisplayScreen extends PcScreen {
         super.onInfo(newInfo);
         Component message = messageText();
         if (message != null && (!previousKey.equals(newInfo.messageKey()) || !previousDetail.equals(newInfo.messageDetail()))) {
-            SystemToast previous = minecraft.getToastManager().getToast(SystemToast.class, MESSAGE_TOAST);
+            SystemToast previous = minecraft.getToasts().getToast(SystemToast.class, MESSAGE_TOAST);
             if (previous != null) {
                 previous.forceHide();
             }
-            minecraft.getToastManager().addToast(SystemToast.multiline(minecraft, MESSAGE_TOAST, Component.literal(serverConfig.name), message));
+            minecraft.getToasts().addToast(SystemToast.multiline(minecraft, MESSAGE_TOAST, Component.literal(serverConfig.name), message));
         }
         if (isOff()) {
             // The guest shut down (or was frozen): back to the control panel.
@@ -283,7 +283,7 @@ public class PcDisplayScreen extends PcScreen {
         TextTyper.type(client, text, serverConfig.typingLayout);
         int missing = TextTyper.untypable(text, serverConfig.typingLayout);
         if (missing > 0) {
-            SystemToast.addOrUpdate(minecraft.getToastManager(), MESSAGE_TOAST, Component.literal(serverConfig.name),
+            SystemToast.addOrUpdate(minecraft.getToasts(), MESSAGE_TOAST, Component.literal(serverConfig.name),
                     Component.translatable("virtual_mashine.msg.paste_skipped", missing));
         }
     }
@@ -304,12 +304,12 @@ public class PcDisplayScreen extends PcScreen {
     // ---------------------------------------------------------------- rendering
 
     @Override
-    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float a) {
         graphics.fill(0, 0, width, height, 0xFF000000);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
         RfbClient vnc = client;
         if (vnc != null) {
             texture.update(vnc);
@@ -317,19 +317,19 @@ public class PcDisplayScreen extends PcScreen {
         layoutView();
         if (texture.ready() && vnc != null) {
             boolean magnified = (long) viewW * minecraft.getWindow().getGuiScale() >= texture.width();
-            graphics.blit(texture.view(), texture.sampler(magnified), viewX, viewY, viewX + viewW, viewY + viewH, 0.0F, 1.0F, 0.0F, 1.0F);
+            texture.draw(graphics, viewX, viewY, viewW, viewH, magnified);
             if (captured) {
-                graphics.outline(viewX - 1, viewY - 1, viewW + 2, viewH + 2, 0xFF3C8DFF);
+                graphics.renderOutline(viewX - 1, viewY - 1, viewW + 2, viewH + 2, 0xFF3C8DFF);
             }
         }
 
         graphics.fill(0, 0, width, TOOLBAR, 0xFF1E1E1E);
-        super.extractRenderState(graphics, mouseX, mouseY, a);
+        super.render(graphics, mouseX, mouseY, a);
 
         int toolbarEnd = freezeButton.getX() + freezeButton.getWidth() + 8;
         Component status = Component.empty().append(serverConfig.name).append(" – ").append(stateText());
         if (toolbarEnd + font.width(status) < width - 4) {
-            graphics.text(font, status, width - 4 - font.width(status), 8, stateColor());
+            graphics.drawString(font, status, width - 4 - font.width(status), 8, stateColor());
         }
 
         Component overlay = overlayText(vnc);
@@ -338,11 +338,11 @@ public class PcDisplayScreen extends PcScreen {
             int cx = width / 2;
             int cy = TOOLBAR + (height - TOOLBAR - FOOTER) / 2;
             graphics.fill(cx - textWidth / 2 - 6, cy - 8, cx + textWidth / 2 + 6, cy + 12, 0xC0000000);
-            graphics.centeredText(font, overlay, cx, cy - 2, YELLOW);
+            graphics.drawCenteredString(font, overlay, cx, cy - 2, YELLOW);
         }
 
         Component hint = Component.translatable(captured ? "virtual_mashine.hint.captured" : "virtual_mashine.hint.click_to_capture");
-        graphics.centeredText(font, hint, width / 2, height - FOOTER + 2, captured ? 0xFF8AB8FF : GRAY);
+        graphics.drawCenteredString(font, hint, width / 2, height - FOOTER + 2, captured ? 0xFF8AB8FF : GRAY);
 
         setCursorHidden(captured && isOverView(mouseX, mouseY));
     }
@@ -402,7 +402,8 @@ public class PcDisplayScreen extends PcScreen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         if (connected() && isOverView(event.x(), event.y())) {
             if (!captured) {
                 pushClipboard();
@@ -412,11 +413,12 @@ public class PcDisplayScreen extends PcScreen {
             client.sendPointer(buttonMask, guestX(event.x()), guestY(event.y()));
             return true;
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         int bit = vncButton(event.button());
         if (bit != 0 && (buttonMask & bit) != 0) {
             buttonMask &= ~bit;
@@ -425,15 +427,16 @@ public class PcDisplayScreen extends PcScreen {
             }
             return true;
         }
-        return super.mouseReleased(event);
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         if (buttonMask != 0) {
             return true; // Movement is already forwarded by mouseMoved.
         }
-        return super.mouseDragged(event, dx, dy);
+        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
     }
 
     @Override
@@ -471,7 +474,7 @@ public class PcDisplayScreen extends PcScreen {
     private void setCursorHidden(boolean hidden) {
         if (hidden != cursorHidden) {
             cursorHidden = hidden;
-            GLFW.glfwSetInputMode(minecraft.getWindow().handle(), GLFW.GLFW_CURSOR, hidden ? GLFW.GLFW_CURSOR_HIDDEN : GLFW.GLFW_CURSOR_NORMAL);
+            GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, hidden ? GLFW.GLFW_CURSOR_HIDDEN : GLFW.GLFW_CURSOR_NORMAL);
         }
     }
 
@@ -483,7 +486,7 @@ public class PcDisplayScreen extends PcScreen {
     }
 
     public void handleRawKey(KeyEvent event, int action) {
-        if (action == VncKeyboard.ACTION_PRESS && VncKeyboard.isReleaseCombo(minecraft.getWindow().handle(), event.key())) {
+        if (action == VncKeyboard.ACTION_PRESS && VncKeyboard.isReleaseCombo(minecraft.getWindow().getWindow(), event.key())) {
             releaseCapture();
             return;
         }
@@ -514,17 +517,19 @@ public class PcDisplayScreen extends PcScreen {
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
         if (isCapturingKeyboard()) {
             handleRawKey(event, VncKeyboard.ACTION_PRESS);
             return true;
         }
-        return super.keyPressed(event);
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
-    public boolean charTyped(CharacterEvent event) {
-        return isCapturingKeyboard() || super.charTyped(event);
+    public boolean charTyped(char chr, int modifiers) {
+        CharacterEvent event = new CharacterEvent(chr, modifiers);
+        return isCapturingKeyboard() || super.charTyped(chr, modifiers);
     }
 
     /** While this screen is open the machine's sound plays directly (stereo) instead of from its block. */

@@ -10,33 +10,33 @@ public final class PcNetworking {
     }
 
     public static void registerCommon() {
-        PayloadTypeRegistry.clientboundPlay().register(PcInfoPayload.TYPE, PcInfoPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(PcActionPayload.TYPE, PcActionPayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(TunnelPayloads.Open.TYPE, TunnelPayloads.Open.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(TunnelPayloads.Data.TYPE, TunnelPayloads.Data.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(TunnelPayloads.Close.TYPE, TunnelPayloads.Close.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(TunnelPayloads.Data.TYPE, TunnelPayloads.Data.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(TunnelPayloads.Close.TYPE, TunnelPayloads.Close.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.PortView.TYPE, NetPayloads.PortView.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.CableSync.TYPE, NetPayloads.CableSync.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.HeldCable.TYPE, NetPayloads.HeldCable.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.PortAction.TYPE, NetPayloads.PortAction.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.ClipView.TYPE, NetPayloads.ClipView.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.ClipAction.TYPE, NetPayloads.ClipAction.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.WlanView.TYPE, NetPayloads.WlanView.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.ApView.TYPE, NetPayloads.ApView.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.WlanAction.TYPE, NetPayloads.WlanAction.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.ApAction.TYPE, NetPayloads.ApAction.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(NetPayloads.IoView.TYPE, NetPayloads.IoView.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(NetPayloads.IoAction.TYPE, NetPayloads.IoAction.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(MediaPayloads.VmAudio.TYPE, MediaPayloads.VmAudio.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(MediaPayloads.MicState.TYPE, MediaPayloads.MicState.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(MediaPayloads.CameraJob.TYPE, MediaPayloads.CameraJob.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(MediaPayloads.AudioFocus.TYPE, MediaPayloads.AudioFocus.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(MediaPayloads.MicAudio.TYPE, MediaPayloads.MicAudio.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(MediaPayloads.CameraFrame.TYPE, MediaPayloads.CameraFrame.CODEC);
-        PayloadTypeRegistry.clientboundPlay().register(MediaPayloads.MicGameJob.TYPE, MediaPayloads.MicGameJob.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(MediaPayloads.MicGameAudio.TYPE, MediaPayloads.MicGameAudio.CODEC);
+        PayloadTypeRegistry.playS2C().register(PcInfoPayload.TYPE, PcInfoPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(PcActionPayload.TYPE, PcActionPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(TunnelPayloads.Open.TYPE, TunnelPayloads.Open.CODEC);
+        PayloadTypeRegistry.playC2S().register(TunnelPayloads.Data.TYPE, TunnelPayloads.Data.CODEC);
+        PayloadTypeRegistry.playC2S().register(TunnelPayloads.Close.TYPE, TunnelPayloads.Close.CODEC);
+        PayloadTypeRegistry.playS2C().register(TunnelPayloads.Data.TYPE, TunnelPayloads.Data.CODEC);
+        PayloadTypeRegistry.playS2C().register(TunnelPayloads.Close.TYPE, TunnelPayloads.Close.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.PortView.TYPE, NetPayloads.PortView.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.CableSync.TYPE, NetPayloads.CableSync.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.HeldCable.TYPE, NetPayloads.HeldCable.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.PortAction.TYPE, NetPayloads.PortAction.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.ClipView.TYPE, NetPayloads.ClipView.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.ClipAction.TYPE, NetPayloads.ClipAction.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.WlanView.TYPE, NetPayloads.WlanView.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.ApView.TYPE, NetPayloads.ApView.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.WlanAction.TYPE, NetPayloads.WlanAction.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.ApAction.TYPE, NetPayloads.ApAction.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.IoView.TYPE, NetPayloads.IoView.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.IoAction.TYPE, NetPayloads.IoAction.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaPayloads.VmAudio.TYPE, MediaPayloads.VmAudio.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaPayloads.MicState.TYPE, MediaPayloads.MicState.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaPayloads.CameraJob.TYPE, MediaPayloads.CameraJob.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaPayloads.AudioFocus.TYPE, MediaPayloads.AudioFocus.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaPayloads.MicAudio.TYPE, MediaPayloads.MicAudio.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaPayloads.CameraFrame.TYPE, MediaPayloads.CameraFrame.CODEC);
+        PayloadTypeRegistry.playS2C().register(MediaPayloads.MicGameJob.TYPE, MediaPayloads.MicGameJob.CODEC);
+        PayloadTypeRegistry.playC2S().register(MediaPayloads.MicGameAudio.TYPE, MediaPayloads.MicGameAudio.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(MediaPayloads.MicGameAudio.TYPE, (payload, context) -> {
             VmManager manager = VmManager.get();
             if (manager != null) {

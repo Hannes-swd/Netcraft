@@ -7,9 +7,9 @@
     "IRI"
   ],
   "key": {
-    "I": "minecraft:iron_ingot",
-    "C": "minecraft:comparator",
-    "R": "minecraft:redstone"
+    "I": {"item": "minecraft:iron_ingot"},
+    "C": {"item": "minecraft:comparator"},
+    "R": {"item": "minecraft:redstone"}
   },
   "result": {
     "id": "virtual_mashine:server",

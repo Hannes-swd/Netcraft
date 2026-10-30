@@ -13,15 +13,12 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.Nullable;
 
 import java.util.UUID;
@@ -208,9 +205,8 @@ public class DeviceBlockEntity extends BlockEntity {
         }
     }
 
-    @Override
-    public void preRemoveSideEffects(BlockPos pos, BlockState state) {
-        super.preRemoveSideEffects(pos, state);
+    /** Called by the block when it is broken or replaced (1.21.1 has no block entity hook for this). */
+    public void onBlockRemoved(BlockPos pos) {
         VmManager manager = VmManager.get();
         if (pcId != null && manager != null && level instanceof ServerLevel serverLevel) {
             manager.onPcRemoved(pcId);
@@ -219,37 +215,41 @@ public class DeviceBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void loadAdditional(ValueInput input) {
-        super.loadAdditional(input);
-        pcId = input.read("pc_id", UUIDUtil.CODEC).orElse(null);
-        linkLeds = input.getIntOr("link_leds", 0);
-        activityLeds = input.getIntOr("activity_leds", 0);
-        ioOutputs = input.getIntOr("io_outputs", 0);
-        displayWidth = input.getIntOr("display_width", 2);
-        displayHeight = input.getIntOr("display_height", 1);
-        displayPort = input.getIntOr("display_port", 0);
-        displaySource = input.read("display_source", UUIDUtil.CODEC).orElse(null);
-        displayHead = input.getIntOr("display_head", 0);
-        usbEnabled = input.getBooleanOr("usb_enabled", true);
-        hdmiMirrored = input.getBooleanOr("hdmi_mirrored", false);
-        micMode = input.getIntOr("mic_mode", 0);
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        pcId = tag.hasUUID("pc_id") ? tag.getUUID("pc_id") : null;
+        linkLeds = tag.getInt("link_leds");
+        activityLeds = tag.getInt("activity_leds");
+        ioOutputs = tag.getInt("io_outputs");
+        displayWidth = tag.contains("display_width") ? tag.getInt("display_width") : 2;
+        displayHeight = tag.contains("display_height") ? tag.getInt("display_height") : 1;
+        displayPort = tag.getInt("display_port");
+        displaySource = tag.hasUUID("display_source") ? tag.getUUID("display_source") : null;
+        displayHead = tag.getInt("display_head");
+        usbEnabled = !tag.contains("usb_enabled") || tag.getBoolean("usb_enabled");
+        hdmiMirrored = tag.getBoolean("hdmi_mirrored");
+        micMode = tag.getInt("mic_mode");
     }
 
     @Override
-    protected void saveAdditional(ValueOutput output) {
-        super.saveAdditional(output);
-        output.storeNullable("pc_id", UUIDUtil.CODEC, pcId);
-        output.putInt("link_leds", linkLeds);
-        output.putInt("activity_leds", activityLeds);
-        output.putInt("io_outputs", ioOutputs);
-        output.putInt("display_width", displayWidth);
-        output.putInt("display_height", displayHeight);
-        output.putInt("display_port", displayPort);
-        output.storeNullable("display_source", UUIDUtil.CODEC, displaySource);
-        output.putInt("display_head", displayHead);
-        output.putBoolean("usb_enabled", usbEnabled);
-        output.putBoolean("hdmi_mirrored", hdmiMirrored);
-        output.putInt("mic_mode", micMode);
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        if (pcId != null) {
+            tag.putUUID("pc_id", pcId);
+        }
+        tag.putInt("link_leds", linkLeds);
+        tag.putInt("activity_leds", activityLeds);
+        tag.putInt("io_outputs", ioOutputs);
+        tag.putInt("display_width", displayWidth);
+        tag.putInt("display_height", displayHeight);
+        tag.putInt("display_port", displayPort);
+        if (displaySource != null) {
+            tag.putUUID("display_source", displaySource);
+        }
+        tag.putInt("display_head", displayHead);
+        tag.putBoolean("usb_enabled", usbEnabled);
+        tag.putBoolean("hdmi_mirrored", hdmiMirrored);
+        tag.putInt("mic_mode", micMode);
     }
 
     @Override
@@ -263,7 +263,7 @@ public class DeviceBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void applyImplicitComponents(DataComponentGetter components) {
+    protected void applyImplicitComponents(BlockEntity.DataComponentInput components) {
         super.applyImplicitComponents(components);
         UUID fromItem = components.get(ModRegistry.PC_ID);
         if (fromItem != null) {
@@ -280,8 +280,8 @@ public class DeviceBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void removeComponentsFromTag(ValueOutput output) {
-        super.removeComponentsFromTag(output);
-        output.discard("pc_id");
+    public void removeComponentsFromTag(CompoundTag tag) {
+        super.removeComponentsFromTag(tag);
+        tag.remove("pc_id");
     }
 }

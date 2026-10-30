@@ -6,9 +6,9 @@
     "QCQ"
   ],
   "key": {
-    "R": "minecraft:lightning_rod",
-    "Q": "minecraft:quartz",
-    "C": "minecraft:comparator"
+    "R": {"item": "minecraft:lightning_rod"},
+    "Q": {"item": "minecraft:quartz"},
+    "C": {"item": "minecraft:comparator"}
   },
   "result": {
     "id": "virtual_mashine:access_point",

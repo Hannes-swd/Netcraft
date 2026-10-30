@@ -7,11 +7,11 @@
     "IRI"
   ],
   "key": {
-    "I": "minecraft:iron_ingot",
-    "R": "minecraft:redstone",
-    "C": "minecraft:comparator",
-    "P": "minecraft:repeater",
-    "X": "minecraft:observer"
+    "I": {"item": "minecraft:iron_ingot"},
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "minecraft:comparator"},
+    "P": {"item": "minecraft:repeater"},
+    "X": {"item": "minecraft:observer"}
   },
   "result": {
     "id": "virtual_mashine:io_module",

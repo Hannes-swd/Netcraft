@@ -780,7 +780,7 @@ public final class NetworkManager {
     public boolean cancelPending(ServerPlayer player) {
         if (pending.remove(player.getUUID()) != null) {
             sendHeldCable(player);
-            player.sendOverlayMessage(Component.translatable("virtual_mashine.ports.msg.cancelled"));
+            player.displayClientMessage(Component.translatable("virtual_mashine.ports.msg.cancelled"), true);
             return true;
         }
         return false;
@@ -813,7 +813,7 @@ public final class NetworkManager {
                 message = "virtual_mashine.clip.msg.hooked";
             }
         }
-        player.sendOverlayMessage(Component.translatable(message));
+        player.displayClientMessage(Component.translatable(message), true);
         return true;
     }
 
@@ -1199,8 +1199,8 @@ public final class NetworkManager {
         return stack;
     }
 
-    static String dimensionOf(ServerLevel level) {
-        return level.dimension().identifier().toString();
+    static String dimensionOf(net.minecraft.world.level.Level level) {
+        return level.dimension().location().toString();
     }
 
     private void load() {

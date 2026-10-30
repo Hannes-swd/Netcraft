@@ -2,7 +2,7 @@ package dev.hannes.virtual_mashine.client.screen;
 
 import dev.hannes.virtual_mashine.network.NetPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -74,7 +74,7 @@ public class IoModuleScreen extends Screen {
         int y = 46;
         nameBox = box(left, y, 120, Component.translatable("virtual_mashine.io.name"), view.name(), 32);
         dhcpButton = CycleButton.booleanBuilder(Component.translatable("virtual_mashine.io.dhcp"),
-                        Component.translatable("virtual_mashine.io.static"), view.dhcp())
+                        Component.translatable("virtual_mashine.io.static")).withInitialValue(view.dhcp())
                 .create(left + 124, y, 112, 20, Component.translatable("virtual_mashine.io.address"), (button, value) -> {
                     networkEdited = true;
                     refreshWidgets();
@@ -171,9 +171,9 @@ public class IoModuleScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractRenderState(graphics, mouseX, mouseY, a);
-        graphics.centeredText(font, Component.literal(view.deviceName()), width / 2, 8, WHITE);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.render(graphics, mouseX, mouseY, a);
+        graphics.drawCenteredString(font, Component.literal(view.deviceName()), width / 2, 8, WHITE);
         Component status;
         int color;
         if (!view.link()) {
@@ -188,24 +188,24 @@ public class IoModuleScreen extends Screen {
                     view.connections());
             color = GREEN;
         }
-        graphics.centeredText(font, status, width / 2, 20, color);
+        graphics.drawCenteredString(font, status, width / 2, 20, color);
         String ip = view.address().isEmpty() ? "" : view.address().split("/")[0];
-        graphics.centeredText(font, ip.isEmpty() ? Component.translatable("virtual_mashine.io.help.noip")
+        graphics.drawCenteredString(font, ip.isEmpty() ? Component.translatable("virtual_mashine.io.help.noip")
                 : Component.translatable("virtual_mashine.io.help", ip), width / 2, 32, GRAY);
 
         for (int ch = 0; ch < 6; ch++) {
             int rowY = channelsTop + ch * ROW;
-            graphics.text(font, Component.translatable("virtual_mashine.io.side." + SIDES[ch]).append(" (" + ch + ")"), left, rowY + 5, WHITE);
+            graphics.drawString(font, Component.translatable("virtual_mashine.io.side." + SIDES[ch]).append(" (" + ch + ")"), left, rowY + 5, WHITE);
             int level = view.levels()[ch];
             int barX = left + 146;
             for (int i = 0; i < 15; i++) {
                 int segment = i < level ? (isOutput(ch) ? 0xFFFFA040 : 0xFFE03030) : 0xFF3A3A3A;
                 graphics.fill(barX + i * 5, rowY + 4, barX + i * 5 + 4, rowY + 14, segment);
             }
-            graphics.text(font, Component.literal(Integer.toString(level)), barX + 78, rowY + 5, level > 0 ? WHITE : GRAY);
+            graphics.drawString(font, Component.literal(Integer.toString(level)), barX + 78, rowY + 5, level > 0 ? WHITE : GRAY);
         }
         if (!message.isEmpty() && System.currentTimeMillis() - messageAt < 5000) {
-            graphics.centeredText(font, Component.translatable(message), width / 2, channelsTop + 6 * ROW + 30, YELLOW);
+            graphics.drawCenteredString(font, Component.translatable(message), width / 2, channelsTop + 6 * ROW + 30, YELLOW);
         }
     }
 

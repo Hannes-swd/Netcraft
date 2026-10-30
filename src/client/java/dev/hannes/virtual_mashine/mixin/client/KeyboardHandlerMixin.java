@@ -4,7 +4,7 @@ import dev.hannes.virtual_mashine.client.display.DisplayManager;
 import dev.hannes.virtual_mashine.client.screen.PcDisplayScreen;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.KeyEvent;
+import dev.hannes.virtual_mashine.client.input.KeyEvent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -18,14 +18,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(KeyboardHandler.class)
 public abstract class KeyboardHandlerMixin {
     @Inject(method = "keyPress", at = @At("HEAD"), cancellable = true)
-    private void virtual_mashine$sendKeysToVm(long handle, int action, KeyEvent event, CallbackInfo ci) {
+    private void virtual_mashine$sendKeysToVm(long handle, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
+        KeyEvent event = new KeyEvent(key, scancode, modifiers);
         Minecraft minecraft = Minecraft.getInstance();
-        if (handle == minecraft.getWindow().handle()
+        if (handle == minecraft.getWindow().getWindow()
                 && minecraft.screen instanceof PcDisplayScreen screen
                 && screen.isCapturingKeyboard()) {
             screen.handleRawKey(event, action);
             ci.cancel();
-        } else if (handle == minecraft.getWindow().handle() && DisplayManager.isCapturingKeyboard()) {
+        } else if (handle == minecraft.getWindow().getWindow() && DisplayManager.isCapturingKeyboard()) {
             DisplayManager.handleRawKey(event, action);
             ci.cancel();
         }

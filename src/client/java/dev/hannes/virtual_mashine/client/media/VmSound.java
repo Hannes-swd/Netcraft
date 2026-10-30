@@ -8,7 +8,7 @@ import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.resources.sounds.TickableSoundInstance;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
 import org.jspecify.annotations.Nullable;
 
@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * screen is open (stereo). One stream per machine; a stream nothing arrives for ends.
  */
 public final class VmSound {
-    private static final Identifier SOUND = Virtual_mashine.id("vm_audio");
+    private static final ResourceLocation SOUND = Virtual_mashine.id("vm_audio");
     private static final long SILENCE_MS = 1500;
 
     private static final class Source {
@@ -68,7 +68,7 @@ public final class VmSound {
         }
 
         @Override
-        public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary loader, Identifier id, boolean repeatInstantly) {
+        public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary loader, ResourceLocation id, boolean repeatInstantly) {
             return CompletableFuture.completedFuture(stream);
         }
 

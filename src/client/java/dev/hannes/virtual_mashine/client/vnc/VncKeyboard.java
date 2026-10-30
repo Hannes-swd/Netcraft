@@ -1,7 +1,7 @@
 package dev.hannes.virtual_mashine.client.vnc;
 
 import dev.hannes.virtual_mashine.vm.HostInfo;
-import net.minecraft.client.input.KeyEvent;
+import dev.hannes.virtual_mashine.client.input.KeyEvent;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
