@@ -1,9 +1,12 @@
 package dev.hannes.virtual_mashine;
 
+import dev.hannes.virtual_mashine.block.RackBlock;
+import dev.hannes.virtual_mashine.block.RackBlockEntity;
 import dev.hannes.virtual_mashine.network.PcNetworking;
 import dev.hannes.virtual_mashine.vm.ModConfig;
 import dev.hannes.virtual_mashine.vm.VmManager;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.resources.ResourceLocation;
@@ -28,6 +31,14 @@ public class Virtual_mashine implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(VmManager::onServerTick);
         // Runs before the world is saved, so every running PC gets frozen (or shut down) first.
         ServerLifecycleEvents.SERVER_STOPPING.register(VmManager::onServerStopping);
+        // Breaking a rack while aiming at one of its devices takes out only that device.
+        PlayerBlockBreakEvents.BEFORE.register(RackBlock::beforeBreak);
+        // The client already removed the rack in its own world: send it back with its devices.
+        PlayerBlockBreakEvents.CANCELED.register((level, player, pos, state, blockEntity) -> {
+            if (blockEntity instanceof RackBlockEntity) {
+                level.sendBlockUpdated(pos, state, state, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+            }
+        });
         Runtime.getRuntime().addShutdownHook(new Thread(VmManager::killAllProcesses, "virtual_mashine-shutdown"));
     }
 }

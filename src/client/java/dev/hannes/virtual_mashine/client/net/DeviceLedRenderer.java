@@ -56,6 +56,11 @@ public final class DeviceLedRenderer implements BlockEntityRenderer<DeviceBlockE
                 renderScreen(facing, device.displayWidth(), device.displayHeight(), screen, poseStack, buffers);
             }
         }
+        renderLeds(type, facing, link, activity, poseStack, buffers);
+    }
+
+    /** The port LEDs of one device, in block coordinates of a device standing at the origin. */
+    public static void renderLeds(DeviceType type, Direction facing, int link, int activity, PoseStack poseStack, MultiBufferSource buffers) {
         if (link == 0) {
             return;
         }

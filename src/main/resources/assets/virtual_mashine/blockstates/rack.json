@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "virtual_mashine:block/rack" },
+    "facing=east": { "model": "virtual_mashine:block/rack", "y": 90 },
+    "facing=south": { "model": "virtual_mashine:block/rack", "y": 180 },
+    "facing=west": { "model": "virtual_mashine:block/rack", "y": 270 }
+  }
+}

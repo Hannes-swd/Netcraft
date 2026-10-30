@@ -4,14 +4,30 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /** Where on a device's housing each socket sits, so cables end exactly at their port. */
 public final class DeviceGeometry {
     private DeviceGeometry() {
     }
 
+    /** Devices in a rack are drawn a little narrower, so they fit between its posts. */
+    public static final double RACK_SCALE = 14.0 / 16.0;
+
     public static Vec3 socket(Cable.End end) {
-        return socket(end.type(), end.pos(), end.direction(), end.port);
+        return socket(end.type(), end.pos(), end.direction(), end.port, end.rack);
+    }
+
+    /**
+     * @param rack height of the device's bottom in its rack in blocks, null = standing on its own
+     */
+    public static Vec3 socket(DeviceType type, BlockPos pos, Direction facing, int port, @Nullable Double rack) {
+        Vec3 alone = socket(type, BlockPos.ZERO, facing, port);
+        if (rack == null) {
+            return alone.add(pos.getX(), pos.getY(), pos.getZ());
+        }
+        return new Vec3(pos.getX() + 0.5 + (alone.x - 0.5) * RACK_SCALE, pos.getY() + rack + alone.y,
+                pos.getZ() + 0.5 + (alone.z - 0.5) * RACK_SCALE);
     }
 
     /**

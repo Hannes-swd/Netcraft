@@ -96,6 +96,20 @@ public enum DeviceType {
         return wirelessOnly() && port == 0;
     }
 
+    /**
+     * Height in a rack in pixels (sixteenths of a block), the same as the device standing on its own;
+     * 0 = it does not go into a rack.
+     */
+    public int rackHeight() {
+        return switch (this) {
+            case SERVER -> 15;
+            case MODEM -> 7;
+            case SWITCH, HUB, MANAGED_SWITCH -> 4;
+            case ROUTER -> 3;
+            default -> 0;
+        };
+    }
+
     /** USB sockets: computers have some for microphones and cameras, a USB device has its one plug. */
     public int usbPorts() {
         return switch (this) {

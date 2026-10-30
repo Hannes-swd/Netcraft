@@ -3,6 +3,7 @@ package dev.hannes.virtual_mashine.client;
 import dev.hannes.virtual_mashine.ModRegistry;
 import dev.hannes.virtual_mashine.client.net.CableRenderer;
 import dev.hannes.virtual_mashine.client.net.DeviceLedRenderer;
+import dev.hannes.virtual_mashine.client.net.RackRenderer;
 import dev.hannes.virtual_mashine.client.display.DisplayManager;
 import dev.hannes.virtual_mashine.client.media.CameraCapture;
 import dev.hannes.virtual_mashine.client.media.GameSoundTap;
@@ -92,6 +93,7 @@ public class Virtual_mashineClient implements ClientModInitializer {
         });
         WorldRenderEvents.AFTER_ENTITIES.register(CableRenderer::render);
         BlockEntityRenderers.register(ModRegistry.DEVICE_BLOCK_ENTITY, DeviceLedRenderer::new);
+        BlockEntityRenderers.register(ModRegistry.RACK_BLOCK_ENTITY, RackRenderer::new);
     }
 
     private static void onPortView(NetPayloads.PortView view, Minecraft minecraft) {

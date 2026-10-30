@@ -5,6 +5,7 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,8 +59,10 @@ public final class Cable {
         public int y;
         public int z;
         public String facing;
+        /** Height of the device's bottom in its rack in blocks; null = not in a rack. */
+        public Double rack;
 
-        public static End of(PortRef ref, DeviceType deviceType, String dimension, BlockPos pos, Direction facing) {
+        public static End of(PortRef ref, DeviceType deviceType, String dimension, BlockPos pos, Direction facing, @Nullable Double rack) {
             End end = new End();
             end.device = ref.device();
             end.port = ref.port();
@@ -69,6 +72,7 @@ public final class Cable {
             end.y = pos.getY();
             end.z = pos.getZ();
             end.facing = facing.getSerializedName();
+            end.rack = rack;
             return end;
         }
 

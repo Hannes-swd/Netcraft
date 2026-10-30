@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import dev.hannes.virtual_mashine.ModRegistry;
 import dev.hannes.virtual_mashine.Virtual_mashine;
+import dev.hannes.virtual_mashine.block.RackBlock;
 import dev.hannes.virtual_mashine.device.CableType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
@@ -52,16 +53,16 @@ public final class NetworkManager {
     private static final double REACH = 8.0;
     private static final long ACTIVITY_NANOS = 400_000_000L;
 
-    /** A device block that ticked recently. */
-    record Placed(DeviceType type, String dimension, BlockPos pos, Direction facing) {
+    /** A device block that ticked recently; {@code rack} = height of its bottom in a rack (blocks), null = on its own. */
+    record Placed(DeviceType type, String dimension, BlockPos pos, Direction facing, @Nullable Double rack) {
     }
 
     /** One end of a cable is plugged in, the player walks to the second device (hanging it on clips on the way). */
-    private record Pending(PortRef port, DeviceType deviceType, String dimension, BlockPos pos, Direction facing, CableType cable, int color,
-                           List<Cable.Hook> hooks) {
+    private record Pending(PortRef port, DeviceType deviceType, String dimension, BlockPos pos, Direction facing, @Nullable Double rack,
+                           CableType cable, int color, List<Cable.Hook> hooks) {
         List<Vec3> path() {
             List<Vec3> points = new ArrayList<>();
-            points.add(DeviceGeometry.socket(deviceType, pos, facing, port.port()));
+            points.add(DeviceGeometry.socket(deviceType, pos, facing, port.port(), rack));
             for (Cable.Hook hook : hooks) {
                 points.add(hook.point());
             }
@@ -158,7 +159,12 @@ public final class NetworkManager {
 
     /** Called about once a second by every loaded device block. */
     public void deviceTick(UUID id, DeviceType type, ServerLevel level, BlockPos pos, Direction facing) {
-        devices.put(id, new Placed(type, dimensionOf(level), pos.immutable(), facing));
+        deviceTick(id, type, level, pos, facing, null);
+    }
+
+    /** @param rack height of the device's bottom in its rack (blocks), null = a block of its own */
+    public void deviceTick(UUID id, DeviceType type, ServerLevel level, BlockPos pos, Direction facing, @Nullable Double rack) {
+        devices.put(id, new Placed(type, dimensionOf(level), pos.immutable(), facing, rack));
         switch (type.kind) {
             case SWITCH -> {
                 if (!fabric.hasSwitch(id)) {
@@ -416,7 +422,7 @@ public final class NetworkManager {
     }
 
     public void openIoView(ServerPlayer player, UUID id, BlockPos pos, Direction facing, String message) {
-        devices.put(id, new Placed(DeviceType.IO_MODULE, dimensionOf(player.level()), pos.immutable(), facing));
+        devices.put(id, new Placed(DeviceType.IO_MODULE, dimensionOf(player.level()), pos.immutable(), facing, null));
         IoModule io = ioModule(id);
         IoHost host = ioHosts.get(id);
         int[] levels = new int[IoModule.CHANNELS];
@@ -479,7 +485,7 @@ public final class NetworkManager {
     /** A player uses this phone: it is where they stand. */
     public void phoneCarried(UUID id, ServerPlayer player) {
         devices.put(id, new Placed(DeviceType.PHONE, dimensionOf(player.level()),
-                BlockPos.containing(player.getEyePosition()), player.getDirection()));
+                BlockPos.containing(player.getEyePosition()), player.getDirection(), null));
         carriedPhones.add(id);
         phoneCarriers.put(id, player.getUUID());
     }
@@ -586,7 +592,13 @@ public final class NetworkManager {
 
     /** @param tester opened with the network tester: the panel also shows speeds, MACs and traffic */
     public void openPortView(ServerPlayer player, UUID id, DeviceType type, BlockPos pos, Direction facing, boolean tester) {
-        devices.put(id, new Placed(type, dimensionOf(player.level()), pos.immutable(), facing));
+        openPortView(player, id, type, pos, facing, null, tester);
+    }
+
+    /** @param rack height of the device's bottom in its rack (blocks), null = a block of its own */
+    public void openPortView(ServerPlayer player, UUID id, DeviceType type, BlockPos pos, Direction facing, @Nullable Double rack,
+                             boolean tester) {
+        devices.put(id, new Placed(type, dimensionOf(player.level()), pos.immutable(), facing, rack));
         NetPayloads.PortView view = portView(player, id, type, pos, true, "");
         ServerPlayNetworking.send(player, new NetPayloads.PortView(view.device(), view.pos(), view.deviceType(), view.deviceName(),
                 view.powered(), true, view.ports(), view.heldCable(), view.pending(), view.message(), tester));
@@ -628,7 +640,7 @@ public final class NetworkManager {
     }
 
     public void openApView(ServerPlayer player, UUID ap, BlockPos pos, Direction facing, String message) {
-        devices.put(ap, new Placed(DeviceType.ACCESS_POINT, dimensionOf(player.level()), pos.immutable(), facing));
+        devices.put(ap, new Placed(DeviceType.ACCESS_POINT, dimensionOf(player.level()), pos.immutable(), facing, null));
         WlanManager.ApConfig config = wlan.accessPoint(ap);
         ServerPlayNetworking.send(player, new NetPayloads.ApView(ap, pos, deviceName(ap, DeviceType.ACCESS_POINT), config.ssid,
                 config.password, wlan.clientsOf(ap), message));
@@ -700,7 +712,7 @@ public final class NetworkManager {
         }
         Pending start = pending.get(player.getUUID());
         if (start == null) {
-            pending.put(player.getUUID(), new Pending(port, placed.type, placed.dimension, placed.pos, placed.facing,
+            pending.put(player.getUUID(), new Pending(port, placed.type, placed.dimension, placed.pos, placed.facing, placed.rack,
                     item.cableType, CableItem.color(held), new ArrayList<>()));
             sendHeldCable(player);
             return "virtual_mashine.ports.msg.first_end";
@@ -724,8 +736,8 @@ public final class NetworkManager {
         cable.id = UUID.randomUUID();
         cable.type = start.cable.id;
         cable.color = start.color;
-        cable.a = Cable.End.of(start.port, start.deviceType, start.dimension, start.pos, start.facing);
-        cable.b = Cable.End.of(port, placed.type, placed.dimension, placed.pos, placed.facing);
+        cable.a = Cable.End.of(start.port, start.deviceType, start.dimension, start.pos, start.facing, start.rack);
+        cable.b = Cable.End.of(port, placed.type, placed.dimension, placed.pos, placed.facing, placed.rack);
         cable.hooks = start.hooks.isEmpty() ? null : new ArrayList<>(start.hooks);
         if (cable.length() > start.cable.maxLength) {
             return "virtual_mashine.ports.msg.too_long";
@@ -1037,11 +1049,50 @@ public final class NetworkManager {
         }
     }
 
+    /** A rack was put up or taken down: cables between racks may now run inside a cabinet, or out in the open. */
+    public void racksChanged() {
+        broadcastCables();
+    }
+
+    /**
+     * Both ends sit in racks that are the same or touch through other racks (one cabinet): the cable
+     * runs inside it and is not drawn.
+     */
+    private static boolean insideCabinet(ServerLevel level, Cable cable) {
+        if (cable.a.rack == null || cable.b.rack == null) {
+            return false;
+        }
+        BlockPos target = cable.b.pos();
+        BlockPos start = cable.a.pos();
+        if (start.equals(target)) {
+            return true;
+        }
+        Set<BlockPos> seen = new java.util.HashSet<>();
+        java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
+        queue.add(start);
+        seen.add(start);
+        while (!queue.isEmpty() && seen.size() < 512) {
+            BlockPos pos = queue.poll();
+            for (Direction direction : Direction.values()) {
+                BlockPos next = pos.relative(direction);
+                if (seen.contains(next) || !level.isLoaded(next) || !(level.getBlockState(next).getBlock() instanceof RackBlock)) {
+                    continue;
+                }
+                if (next.equals(target)) {
+                    return true;
+                }
+                seen.add(next);
+                queue.add(next);
+            }
+        }
+        return false;
+    }
+
     private void sendCables(ServerPlayer player) {
         String dimension = dimensionOf(player.level());
         List<NetPayloads.CableVisual> visuals = new ArrayList<>();
         for (Cable cable : cables) {
-            if (cable.a.dimension.equals(dimension)) {
+            if (cable.a.dimension.equals(dimension) && !insideCabinet(player.serverLevel(), cable)) {
                 visuals.add(new NetPayloads.CableVisual(cable.path(), cable.color));
             }
         }

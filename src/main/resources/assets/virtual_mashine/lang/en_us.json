@@ -312,5 +312,8 @@
   "virtual_mashine.clip.more": "… and %s more",
   "virtual_mashine.clip.msg.hooked": "Cable hooked in – now plug in the other end",
   "virtual_mashine.clip.msg.already": "The cable already hangs on this clip",
-  "virtual_mashine.clip.msg.unhooked": "Cable unhooked – it stays plugged in"
+  "virtual_mashine.clip.msg.unhooked": "Cable unhooked – it stays plugged in",
+  "block.virtual_mashine.rack": "Rack",
+  "virtual_mashine.rack.full": "There is no room left in the rack for this device",
+  "virtual_mashine.rack.hint": "Right-click with a switch, hub, router, server or modem: mount it (top to bottom) · aim at a device and break it: only that device comes out"
 }

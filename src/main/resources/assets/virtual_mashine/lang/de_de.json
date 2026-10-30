@@ -312,5 +312,8 @@
   "virtual_mashine.clip.more": "… und %s weitere",
   "virtual_mashine.clip.msg.hooked": "Kabel eingehängt – jetzt das andere Ende einstecken",
   "virtual_mashine.clip.msg.already": "Das Kabel hängt schon an diesem Halter",
-  "virtual_mashine.clip.msg.unhooked": "Kabel ausgehängt – es bleibt eingesteckt"
+  "virtual_mashine.clip.msg.unhooked": "Kabel ausgehängt – es bleibt eingesteckt",
+  "block.virtual_mashine.rack": "Rack",
+  "virtual_mashine.rack.full": "Im Rack ist kein Platz mehr für dieses Gerät",
+  "virtual_mashine.rack.hint": "Rechtsklick mit Switch, Hub, Router, Server oder Modem: einbauen (von oben nach unten) · auf ein Gerät zielen und abbauen: nur dieses Gerät kommt raus"
 }

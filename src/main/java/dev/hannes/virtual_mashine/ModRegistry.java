@@ -4,6 +4,8 @@ import com.mojang.serialization.Codec;
 import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
+import dev.hannes.virtual_mashine.block.RackBlock;
+import dev.hannes.virtual_mashine.block.RackBlockEntity;
 import dev.hannes.virtual_mashine.device.CableType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
@@ -91,6 +93,21 @@ public final class ModRegistry {
                     .noOcclusion()));
     public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties));
 
+    public static final Block RACK_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("rack"),
+            new RackBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .dynamicShape() // the hitbox follows the mounted devices
+                    .strength(2.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+    public static final Item RACK = item("rack", properties -> new BlockItem(RACK_BLOCK, properties));
+    public static final BlockEntityType<RackBlockEntity> RACK_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Virtual_mashine.id("rack"),
+            FabricBlockEntityTypeBuilder.create(RackBlockEntity::new, RACK_BLOCK).build()
+    );
+
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
 
@@ -111,7 +128,7 @@ public final class ModRegistry {
                 PHONE, DEVICE_ITEMS.get(DeviceType.SERVER), DEVICE_ITEMS.get(DeviceType.DISPLAY), DEVICE_ITEMS.get(DeviceType.HDMI_SWITCH),
                 DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA));
         tab("network_devices", DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.HUB),
-                DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT));
+                DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT), RACK);
         tab("internet", DEVICE_ITEMS.get(DeviceType.MODEM), DEVICE_ITEMS.get(DeviceType.MODEM));
         tab("automation", DEVICE_ITEMS.get(DeviceType.IO_MODULE), DEVICE_ITEMS.get(DeviceType.IO_MODULE),
                 DEVICE_ITEMS.get(DeviceType.DISPLAY));
