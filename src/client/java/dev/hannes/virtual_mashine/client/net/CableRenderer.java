@@ -17,12 +17,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Draws every patch cable as a sagging, lit tube between its two sockets (over the clips it hangs from). */
 public final class CableRenderer {
     private static final ResourceLocation TEXTURE = Virtual_mashine.id("textures/entity/cable.png");
     private static final float RADIUS = 0.028F;
+    /** Faces around the tube: enough to look round up close. */
+    private static final int SIDES = 8;
     private static final double MAX_DISTANCE = 128;
 
     private static volatile List<NetPayloads.CableVisual> cables = List.of();
@@ -97,27 +100,23 @@ public final class CableRenderer {
         double horizontal = Math.sqrt((b.x - a.x) * (b.x - a.x) + (b.z - a.z) * (b.z - a.z));
         double sag = Math.min(1.6, 0.05 + horizontal * 0.06);
         int segments = (int) Math.max(8, Math.min(48, length * 2));
-        int argb = 0xFF000000 | color;
-        Vec3 previous = point(a, b, sag, 0);
-        for (int i = 1; i <= segments; i++) {
-            Vec3 next = point(a, b, sag, (double) i / segments);
-            segment(buffer, pose, level, camera, previous, next, argb);
-            previous = next;
+        List<Vec3> points = new ArrayList<>(segments + 1);
+        for (int i = 0; i <= segments; i++) {
+            points.add(point(a, b, sag, (double) i / segments));
         }
+        strand(buffer, pose, level, camera, points, 0xFF000000 | color);
     }
 
     /** A patch cable inside a rack: a smooth curve through four control points, without sagging. */
-    private static void patch(VertexConsumer buffer, PoseStack.Pose pose, ClientLevel level, Vec3 camera, List<Vec3> points, int color) {
-        if (points.size() != 4 || points.get(0).distanceTo(camera) > MAX_DISTANCE) {
+    private static void patch(VertexConsumer buffer, PoseStack.Pose pose, ClientLevel level, Vec3 camera, List<Vec3> controls, int color) {
+        if (controls.size() != 4 || controls.get(0).distanceTo(camera) > MAX_DISTANCE) {
             return;
         }
-        int argb = 0xFF000000 | color;
-        Vec3 previous = points.get(0);
-        for (int i = 1; i <= 24; i++) {
-            Vec3 next = bezier(points, i / 24.0);
-            segment(buffer, pose, level, camera, previous, next, argb);
-            previous = next;
+        List<Vec3> points = new ArrayList<>(25);
+        for (int i = 0; i <= 24; i++) {
+            points.add(bezier(controls, i / 24.0));
         }
+        strand(buffer, pose, level, camera, points, 0xFF000000 | color);
     }
 
     private static Vec3 bezier(List<Vec3> p, double t) {
@@ -133,40 +132,72 @@ public final class CableRenderer {
                 a.z + (b.z - a.z) * t);
     }
 
-    private static void segment(VertexConsumer buffer, PoseStack.Pose pose, ClientLevel level, Vec3 camera, Vec3 from, Vec3 to, int argb) {
-        Vector3f direction = new Vector3f((float) (to.x - from.x), (float) (to.y - from.y), (float) (to.z - from.z)).normalize();
-        Vector3f side = new Vector3f(direction).cross(0, 1, 0);
-        if (side.lengthSquared() < 1.0E-6F) {
-            side.set(1, 0, 0);
+    /**
+     * One seamless tube along the points: a ring around every point, its orientation carried along the
+     * cable (so it does not twist in bends), neighbouring rings joined by quads.
+     */
+    private static void strand(VertexConsumer buffer, PoseStack.Pose pose, ClientLevel level, Vec3 camera, List<Vec3> points, int argb) {
+        int count = points.size();
+        if (count < 2) {
+            return;
         }
-        side.normalize();
-        Vector3f up = new Vector3f(side).cross(direction).normalize();
-        int lightFrom = LevelRenderer.getLightColor(level, BlockPos.containing(from));
-        int lightTo = LevelRenderer.getLightColor(level, BlockPos.containing(to));
-        float fx = (float) (from.x - camera.x);
-        float fy = (float) (from.y - camera.y);
-        float fz = (float) (from.z - camera.z);
-        float tx = (float) (to.x - camera.x);
-        float ty = (float) (to.y - camera.y);
-        float tz = (float) (to.z - camera.z);
-        // Four faces around the tube: +up, +side, -up, -side.
-        Vector3f[] normals = {up, side, new Vector3f(up).negate(), new Vector3f(side).negate()};
-        for (int face = 0; face < 4; face++) {
-            Vector3f n = normals[face];
-            Vector3f t = normals[(face + 1) % 4];
-            float ox1 = (n.x + t.x) * RADIUS;
-            float oy1 = (n.y + t.y) * RADIUS;
-            float oz1 = (n.z + t.z) * RADIUS;
-            float ox2 = (n.x - t.x) * RADIUS;
-            float oy2 = (n.y - t.y) * RADIUS;
-            float oz2 = (n.z - t.z) * RADIUS;
-            // Counter-clockwise seen from outside, so back-face culling keeps the outer side.
-            vertex(buffer, pose, fx + ox1, fy + oy1, fz + oz1, argb, 0, 1, lightFrom, n);
-            vertex(buffer, pose, tx + ox1, ty + oy1, tz + oz1, argb, 1, 1, lightTo, n);
-            vertex(buffer, pose, tx + ox2, ty + oy2, tz + oz2, argb, 1, 0, lightTo, n);
-            vertex(buffer, pose, fx + ox2, fy + oy2, fz + oz2, argb, 0, 0, lightFrom, n);
+        Vector3f[] up = new Vector3f[count];
+        Vector3f[] side = new Vector3f[count];
+        Vector3f carried = null;
+        for (int i = 0; i < count; i++) {
+            Vec3 before = points.get(Math.max(0, i - 1));
+            Vec3 after = points.get(Math.min(count - 1, i + 1));
+            Vector3f tangent = new Vector3f((float) (after.x - before.x), (float) (after.y - before.y), (float) (after.z - before.z));
+            if (tangent.lengthSquared() < 1.0E-12F) {
+                tangent.set(0, 0, 1);
+            }
+            tangent.normalize();
+            if (carried == null) {
+                // Start: "up" as close to the world's up as the direction allows.
+                carried = Math.abs(tangent.y) > 0.99F ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0);
+            }
+            // Parallel transport: keep last ring's up, only remove the part along the new direction.
+            Vector3f u = new Vector3f(carried).sub(new Vector3f(tangent).mul(carried.dot(tangent)));
+            if (u.lengthSquared() < 1.0E-8F) {
+                u = Math.abs(tangent.y) > 0.99F ? new Vector3f(1, 0, 0) : new Vector3f(0, 1, 0);
+                u.sub(new Vector3f(tangent).mul(u.dot(tangent)));
+            }
+            u.normalize();
+            up[i] = u;
+            side[i] = new Vector3f(tangent).cross(u).normalize();
+            carried = u;
+        }
+        int[] light = new int[count];
+        for (int i = 0; i < count; i++) {
+            light[i] = LevelRenderer.getLightColor(level, BlockPos.containing(points.get(i)));
+        }
+        for (int i = 0; i + 1 < count; i++) {
+            Vec3 from = points.get(i);
+            Vec3 to = points.get(i + 1);
+            for (int j = 0; j < SIDES; j++) {
+                // Counter-clockwise seen from outside, so back-face culling keeps the outer side.
+                double lo = 2 * Math.PI * (j - 0.5) / SIDES;
+                double hi = 2 * Math.PI * (j + 0.5) / SIDES;
+                ringVertex(buffer, pose, camera, from, up[i], side[i], hi, argb, 0, light[i]);
+                ringVertex(buffer, pose, camera, to, up[i + 1], side[i + 1], hi, argb, 1, light[i + 1]);
+                ringVertex(buffer, pose, camera, to, up[i + 1], side[i + 1], lo, argb, 1, light[i + 1]);
+                ringVertex(buffer, pose, camera, from, up[i], side[i], lo, argb, 0, light[i]);
+            }
         }
     }
+
+    private static void ringVertex(VertexConsumer buffer, PoseStack.Pose pose, Vec3 camera, Vec3 centre, Vector3f up, Vector3f side,
+                                   double angle, int argb, float u, int light) {
+        float cos = (float) Math.cos(angle);
+        float sin = (float) Math.sin(angle);
+        Vector3f normal = new Vector3f(up).mul(cos).add(new Vector3f(side).mul(sin));
+        vertex(buffer, pose,
+                (float) (centre.x - camera.x) + normal.x * RADIUS,
+                (float) (centre.y - camera.y) + normal.y * RADIUS,
+                (float) (centre.z - camera.z) + normal.z * RADIUS,
+                argb, u, (float) (angle / (2 * Math.PI)), light, normal);
+    }
+
 
     private static void vertex(VertexConsumer buffer, PoseStack.Pose pose, float x, float y, float z, int argb, float u, float v, int light, Vector3f normal) {
         buffer.addVertex(pose, x, y, z)
