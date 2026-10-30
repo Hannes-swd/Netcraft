@@ -30,6 +30,21 @@ public final class DeviceGeometry {
                 pos.getZ() + 0.5 + (alone.z - 0.5) * RACK_SCALE);
     }
 
+    /** The side of the housing a socket is on: a cable leaves it in this direction. */
+    public static Direction socketFace(DeviceType type, Direction facing, int port) {
+        if (type == DeviceType.HDMI_SWITCH || type == DeviceType.USB_HUB) {
+            int index = type == DeviceType.HDMI_SWITCH ? type.hdmiIndex(port) : type.usbIndex(port);
+            return index == 0 ? facing.getOpposite() : facing;
+        }
+        if (type.isConsolePort(port) && type.portsOnFront) {
+            return facing.getOpposite();
+        }
+        if (type.isHdmiPort(port) || type.isUsbPort(port)) {
+            return facing.getOpposite();
+        }
+        return type.portsOnFront ? facing : facing.getOpposite();
+    }
+
     /**
      * @param facing the side the device's front points to (its block state)
      */

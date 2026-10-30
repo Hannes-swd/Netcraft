@@ -54,8 +54,9 @@ import java.util.UUID;
  */
 public class RackBlock extends BaseEntityBlock {
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
-    /** The four posts and the back panel, by facing. */
-    private static final VoxelShape POSTS = Shapes.or(Block.box(0, 0, 0, 1, 16, 1), Block.box(15, 0, 0, 16, 16, 1),
+    /** The four posts and the top plate (a laptop or anything else can stand on it); the back panel depends on the facing. */
+    private static final VoxelShape POSTS = Shapes.or(Block.box(0, 15, 0, 16, 16, 16),
+            Block.box(0, 0, 0, 1, 16, 1), Block.box(15, 0, 0, 16, 16, 1),
             Block.box(0, 0, 15, 1, 16, 16), Block.box(15, 0, 15, 16, 16, 16));
 
     public RackBlock(BlockBehaviour.Properties properties) {
@@ -128,6 +129,10 @@ public class RackBlock extends BaseEntityBlock {
                 mount(serverPlayer, rack, stack, device.deviceType(), level, pos);
             }
             return ItemInteractionResult.SUCCESS;
+        }
+        if (stack.getItem() instanceof BlockItem) {
+            // Any other block (a laptop, a lamp ...) is placed as usual, e.g. on top of the rack.
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
         }
         boolean tester = stack.getItem() instanceof NetworkTesterItem;
         RackBlockEntity.Slot slot = slotHit(rack, pos, hit);

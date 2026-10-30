@@ -60,6 +60,10 @@ public final class CableRenderer {
         PoseStack.Pose pose = (context.matrixStack() != null ? context.matrixStack() : new PoseStack()).last();
         VertexConsumer buffer = buffers.getBuffer(RenderType.entitySolid(TEXTURE));
         for (NetPayloads.CableVisual cable : all) {
+            if (cable.patch()) {
+                patch(buffer, pose, level, camera, cable.points(), cable.color());
+                continue;
+            }
             // From socket to socket over every clip it hangs from; each stretch sags on its own.
             List<Vec3> points = cable.points();
             for (int i = 1; i < points.size(); i++) {
@@ -100,6 +104,25 @@ public final class CableRenderer {
             segment(buffer, pose, level, camera, previous, next, argb);
             previous = next;
         }
+    }
+
+    /** A patch cable inside a rack: a smooth curve through four control points, without sagging. */
+    private static void patch(VertexConsumer buffer, PoseStack.Pose pose, ClientLevel level, Vec3 camera, List<Vec3> points, int color) {
+        if (points.size() != 4 || points.get(0).distanceTo(camera) > MAX_DISTANCE) {
+            return;
+        }
+        int argb = 0xFF000000 | color;
+        Vec3 previous = points.get(0);
+        for (int i = 1; i <= 24; i++) {
+            Vec3 next = bezier(points, i / 24.0);
+            segment(buffer, pose, level, camera, previous, next, argb);
+            previous = next;
+        }
+    }
+
+    private static Vec3 bezier(List<Vec3> p, double t) {
+        double u = 1 - t;
+        return p.get(0).scale(u * u * u).add(p.get(1).scale(3 * u * u * t)).add(p.get(2).scale(3 * u * t * t)).add(p.get(3).scale(t * t * t));
     }
 
     /** Position along a cable hanging between a and b. */

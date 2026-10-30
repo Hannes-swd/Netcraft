@@ -326,8 +326,11 @@ public final class NetPayloads {
         }
     }
 
-    /** One cable as the client draws it: socket, the clips it hangs from, socket. */
-    public record CableVisual(List<Vec3> points, int color) {
+    /**
+     * One cable as the client draws it: socket, the clips it hangs from, socket; a {@code patch} cable inside
+     * a rack instead gives the four points of a smooth curve.
+     */
+    public record CableVisual(List<Vec3> points, int color, boolean patch) {
     }
 
     private static void writePoints(RegistryFriendlyByteBuf buf, List<Vec3> points) {
@@ -357,13 +360,14 @@ public final class NetPayloads {
                     for (CableVisual c : payload.cables) {
                         writePoints(buf, c.points());
                         buf.writeInt(c.color());
+                        buf.writeBoolean(c.patch());
                     }
                 },
                 buf -> {
                     int count = Math.min(buf.readVarInt(), 100_000);
                     List<CableVisual> cables = new ArrayList<>(count);
                     for (int i = 0; i < count; i++) {
-                        cables.add(new CableVisual(readPoints(buf), buf.readInt()));
+                        cables.add(new CableVisual(readPoints(buf), buf.readInt(), buf.readBoolean()));
                     }
                     return new CableSync(cables);
                 });

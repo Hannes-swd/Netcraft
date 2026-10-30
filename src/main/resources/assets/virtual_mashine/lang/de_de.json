@@ -315,5 +315,5 @@
   "virtual_mashine.clip.msg.unhooked": "Kabel ausgehängt – es bleibt eingesteckt",
   "block.virtual_mashine.rack": "Rack",
   "virtual_mashine.rack.full": "Im Rack ist kein Platz mehr für dieses Gerät",
-  "virtual_mashine.rack.hint": "Rechtsklick mit Switch, Hub, Router, Server oder Modem: einbauen (von oben nach unten) · auf ein Gerät zielen und abbauen: nur dieses Gerät kommt raus"
+  "virtual_mashine.rack.hint": "Rechtsklick mit Switch, Hub, Router, Server oder Modem: einbauen (von unten nach oben) · auf ein Gerät zielen und abbauen: nur dieses Gerät kommt raus"
 }

@@ -30,8 +30,8 @@ import java.util.UUID;
  * exactly like devices standing on their own; their block is the rack.
  */
 public class RackBlockEntity extends BlockEntity {
-    /** Inner height of a rack in pixels. */
-    public static final int HEIGHT = 16;
+    /** Inner height of a rack in pixels, below its 1 pixel top plate. */
+    public static final int HEIGHT = 15;
 
     /** One mounted device: {@code bottom} in pixels above the rack's floor. */
     public static final class Slot {
@@ -80,19 +80,19 @@ public class RackBlockEntity extends BlockEntity {
     }
 
     /**
-     * Where a device of this height goes: devices stack from the top down, a gap left by one taken
+     * Where a device of this height goes: devices stack from the floor up, a gap left by one taken
      * out is filled again. -1 = no room.
      */
     public int freeBottom(int height) {
-        List<Integer> tops = new ArrayList<>();
-        tops.add(HEIGHT);
+        List<Integer> bottoms = new ArrayList<>();
+        bottoms.add(0);
         for (Slot slot : slots) {
-            tops.add(slot.bottom);
+            bottoms.add(slot.top());
         }
-        tops.sort(Collections.reverseOrder());
-        for (int top : tops) {
-            int bottom = top - height;
-            if (bottom >= 0 && slots.stream().noneMatch(slot -> bottom < slot.top() && top > slot.bottom)) {
+        Collections.sort(bottoms);
+        for (int bottom : bottoms) {
+            int top = bottom + height;
+            if (top <= HEIGHT && slots.stream().noneMatch(slot -> bottom < slot.top() && top > slot.bottom)) {
                 return bottom;
             }
         }

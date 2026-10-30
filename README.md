@@ -110,10 +110,11 @@ echtes „Kabel gezogen“. LEDs am Gerät: grün = Link, orange = Datenverkehr.
 in die Luft. **Netzwerk-Tester:** zeigt Geschwindigkeit, MAC-Adresse und Datenverkehr jedes Ports.
 
 **Rack:** Rechtsklick mit Switch, Hub, Managed Switch, Router, Server oder Modem baut das Gerät ein – sie
-stapeln sich von oben nach unten und behalten ihre Höhe (16 Pixel Platz: z. B. vier Switches oder ein Server).
+stapeln sich von unten nach oben und behalten ihre Höhe (15 Pixel Platz: z. B. drei Switches und ein Router, oder ein Server).
 Jedes Gerät hat im Rack seine eigene Hitbox: Rechtsklick öffnet wie sonst Bildschirm bzw. Anschlüsse, abbauen
 nimmt nur das anvisierte Gerät heraus (es behält seine Festplatte). Kabel zwischen Geräten im selben Rack oder
-in Racks, die neben- oder übereinander stehen, laufen innen und werden nicht gezeichnet.
+in Racks, die neben- oder übereinander stehen, laufen innen als geschwungene Patchkabel. Oben auf dem Rack
+ist eine Deckplatte: dort kann z. B. ein Laptop stehen.
 
 **Kabelhalter:** an jede Blockseite setzen (Wand, Boden, Decke). Erstes Kabelende einstecken, dann mit dem
 Kabel in der Hand nacheinander die Halter rechtsklicken – das Kabel läuft über sie wie mit Kabelbindern

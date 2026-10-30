@@ -1049,15 +1049,26 @@ public final class NetworkManager {
         }
     }
 
+    /**
+     * A patch cable inside a cabinet: straight out of both sockets, then a smooth bend between them
+     * (the four control points of a cubic Bezier curve).
+     */
+    private static List<Vec3> patchCurve(Cable cable) {
+        Vec3 a = DeviceGeometry.socket(cable.a);
+        Vec3 b = DeviceGeometry.socket(cable.b);
+        Direction faceA = DeviceGeometry.socketFace(cable.a.type(), cable.a.direction(), cable.a.port);
+        Direction faceB = DeviceGeometry.socketFace(cable.b.type(), cable.b.direction(), cable.b.port);
+        double reach = Math.min(0.6, 0.12 + a.distanceTo(b) * 0.3);
+        return List.of(a, a.add(Vec3.atLowerCornerOf(faceA.getNormal()).scale(reach)),
+                b.add(Vec3.atLowerCornerOf(faceB.getNormal()).scale(reach)), b);
+    }
+
     /** A rack was put up or taken down: cables between racks may now run inside a cabinet, or out in the open. */
     public void racksChanged() {
         broadcastCables();
     }
 
-    /**
-     * Both ends sit in racks that are the same or touch through other racks (one cabinet): the cable
-     * runs inside it and is not drawn.
-     */
+    /** Both ends sit in racks that are the same or touch through other racks (one cabinet). */
     private static boolean insideCabinet(ServerLevel level, Cable cable) {
         if (cable.a.rack == null || cable.b.rack == null) {
             return false;
@@ -1092,8 +1103,13 @@ public final class NetworkManager {
         String dimension = dimensionOf(player.level());
         List<NetPayloads.CableVisual> visuals = new ArrayList<>();
         for (Cable cable : cables) {
-            if (cable.a.dimension.equals(dimension) && !insideCabinet(player.serverLevel(), cable)) {
-                visuals.add(new NetPayloads.CableVisual(cable.path(), cable.color));
+            if (!cable.a.dimension.equals(dimension)) {
+                continue;
+            }
+            if (cable.hooks == null && insideCabinet(player.serverLevel(), cable)) {
+                visuals.add(new NetPayloads.CableVisual(patchCurve(cable), cable.color, true));
+            } else {
+                visuals.add(new NetPayloads.CableVisual(cable.path(), cable.color, false));
             }
         }
         ServerPlayNetworking.send(player, new NetPayloads.CableSync(visuals));
