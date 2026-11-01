@@ -58,6 +58,13 @@
                                 "in":  {
                                            "1.21.1":  "1.13.0+1.21.1"
                                        }
+                            },
+                            {
+                                "name":  "Anschluss-Fenster: Anschlüsse in mehreren Reihen (responsiv)",
+                                "in":  {
+                                           "1.21.1":  "1.13.0+1.21.1",
+                                           "26.1":  "1.10.0"
+                                       }
                             }
                         ],
     "netcraft_pc_builder":  [
