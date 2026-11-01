@@ -11,7 +11,11 @@
                                             neue Versionen: Version hoch, Build-Check, Changelog,
                                             Commit, Tag, Push, GitHub-Release, Modrinth-Ordner
     modtool push [mod...]                   Commits aller Varianten zu GitHub pushen
-    modtool commit [mod...] -Notes "Text"   alle Änderungen der Variante(n) committen
+    modtool commit [mod...] -Notes "Text" [-Push]
+                                            alle Änderungen der Variante(n) committen (und pushen)
+    modtool changes [mod...]                was ist neu: nicht committet, nicht gepusht, seit Release,
+                                            geänderte Dateien, Release-Datei (wie "Was ist neu" in der GUI)
+    modtool branches [-Json]                alle Branches auf GitHub mit Zuordnung und Stand
     modtool downloads [mod...]              gebaute Jars nach Downloads kopieren (für Modrinth);
                                             ein Release macht das automatisch
     modtool new "Netcraft: Name" mod_id [-Mc 1.21.1]
@@ -47,6 +51,8 @@ param(
     # feature: the mod version a feature arrived in (default: the variant's current version).
     [string]$Version = '',
     [switch]$All,
+    # commit: push right after committing.
+    [switch]$Push,
     [switch]$DryRun,
     # overview: machine-readable output (for Claude and scripts).
     [switch]$Json,
@@ -587,6 +593,57 @@ function Cmd-Commit {
         Run-Git $t commit -q -m $msg | Out-Null
         if ($script:GitCode -eq 0) { Ok ((Run-Git $t log --oneline -1) -join '') } else { Warn 'Commit fehlgeschlagen' }
     }
+    if ($Push) { Cmd-Push }
+}
+
+# Everything new per variant (same as the GUI's "Was ist neu" and release-file box).
+function Cmd-Changes {
+    $chosen = Select-Targets $Names
+    if ($null -eq $chosen) { $chosen = @(Get-Targets | Where-Object { Test-Path $_.Path }) }
+    foreach ($t in Sort-Targets $chosen) {
+        $c = Get-Changes $t
+        $j = Get-JarInfo $t
+        $since = if ($c.releaseBase) { "seit $($c.releaseBase)" } else { '(noch nie veröffentlicht)' }
+        Step "$($t.Label) $(Get-Version $t)  Branch $($t.Branch)  $since"
+        $groups = [ordered]@{
+            'Nicht committet (nur lokal)'               = $c.uncommitted
+            'Commits, nicht auf GitHub'                 = @($c.unpushed | Where-Object { -not "$_".StartsWith('(') })
+            'Commits seit dem letzten Release'          = $c.sinceRelease
+            'Geänderte Dateien seit dem letzten Release' = $c.changedFiles
+        }
+        $any = $false
+        foreach ($g in $groups.GetEnumerator()) {
+            $items = @($g.Value | Where-Object { $_ })
+            if (-not $items.Count) { continue }
+            $any = $true
+            Info "$($g.Key) ($($items.Count)):"
+            foreach ($i in $items) { Write-Host "        $i" }
+        }
+        if (@($c.unpushed | Where-Object { "$_".StartsWith('(') }).Count) { Warn 'Branch noch nie gepusht' }
+        if (-not $any -and $c.releaseBase) { Ok 'nichts Neues seit dem letzten Release' }
+        if ($j) {
+            $state = if ($j.released) { 'veröffentlicht' } else { 'NEUE Release-Datei, noch nicht veröffentlicht' }
+            $old = if ($j.current) { '' } else { ', alte Version - neu bauen' }
+            $dl = if ($j.inUploads) { ', liegt in Downloads' } else { '' }
+            Info "Jar: $($j.name) (gebaut $($j.builtAt)$old) - $state$dl"
+        } else {
+            Info 'Jar: noch nicht gebaut'
+        }
+    }
+}
+
+function Cmd-Branches {
+    $list = Get-BranchList
+    $rows = foreach ($b in $list) {
+        [pscustomobject]@{
+            Branch          = $b.name + $(if ($b.isDefault) { ' (Standard)' } else { '' })
+            'Gehört zu'     = if ($b.mod) { "$($b.mod)$(if ($b.mc) { " $($b.mc)" })" } else { '!! keiner Mod zugeordnet' }
+            'Letzter Commit' = "$($b.sha) $($b.subject) ($($b.when))"
+            Stand           = $b.state
+        }
+    }
+    if ($Json) { @($list) | ConvertTo-Json -Depth 5; return }
+    $rows | Format-Table -AutoSize -Wrap | Out-String -Width 220 | Write-Host
 }
 
 function To-ClassName([string]$id) { return (($id -split '_') | ForEach-Object { if ($_) { $_.Substring(0, 1).ToUpper() + $_.Substring(1) } }) -join '' }
@@ -932,7 +989,12 @@ function Get-Overview {
 
 function Cmd-Overview {
     $o = Get-Overview
-    if ($Json) { $o | ConvertTo-Json -Depth 10; return }
+    if ($Json) {
+        $o['repo'] = $Config.repo
+        $o['branches'] = @(Get-BranchList)
+        $o | ConvertTo-Json -Depth 10
+        return
+    }
     $rows = foreach ($mod in $o.mods) {
         $row = [ordered]@{ Mod = $mod.name }
         foreach ($mc in $o.minecraftVersions) {
@@ -942,6 +1004,8 @@ function Cmd-Overview {
                 if ($v.changedSinceRelease) { $flags += 'geändert' }
                 if (-not $v.built) { $flags += 'nicht gebaut' }
                 if ($v.github -ne 'aktuell') { $flags += $v.github }
+                if ($v.dirtyFiles -gt 0) { $flags += "$($v.dirtyFiles) nicht committet" }
+                if ($v.jar -and -not $v.jar.released) { $flags += "neue Release-Datei $($v.jar.name)" }
                 "$($v.version) (Release: $($v.latestRelease))" + $(if ($flags) { " [" + ($flags -join ', ') + "]" } else { '' })
             }
         }
@@ -1218,6 +1282,8 @@ switch ($Command.ToLower()) {
     'release' { Cmd-Release }
     'push' { Cmd-Push }
     'commit' { Cmd-Commit }
+    'changes' { Cmd-Changes }
+    'branches' { Cmd-Branches }
     'downloads' { Cmd-Downloads }
     'new' { Cmd-New }
     'port' { Cmd-Port }
