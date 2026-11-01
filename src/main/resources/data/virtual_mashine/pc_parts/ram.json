@@ -1,0 +1,11 @@
+{
+  "_note": "Ein Item = ein Kit. modules = belegte Steckplaetze, size_gb = Gesamtgroesse.",
+  "parts": [
+    {"id":"corsair_lpx_16_ddr4","brand":"Corsair","name":"Vengeance LPX 16 GB (2x8) DDR4-3200","memory":"DDR4","modules":2,"size_gb":16,"speed":3200},
+    {"id":"kingston_beast_32_ddr4","brand":"Kingston","name":"FURY Beast 32 GB (2x16) DDR4-3600","memory":"DDR4","modules":2,"size_gb":32,"speed":3600},
+    {"id":"gskill_ripjaws_64_ddr4","brand":"G.Skill","name":"Ripjaws V 64 GB (2x32) DDR4-3200","memory":"DDR4","modules":2,"size_gb":64,"speed":3200},
+    {"id":"kingston_beast_16_ddr5","brand":"Kingston","name":"FURY Beast 16 GB (2x8) DDR5-5600","memory":"DDR5","modules":2,"size_gb":16,"speed":5600},
+    {"id":"corsair_vengeance_32_ddr5","brand":"Corsair","name":"Vengeance 32 GB (2x16) DDR5-6000","memory":"DDR5","modules":2,"size_gb":32,"speed":6000},
+    {"id":"gskill_tridentz5_64_ddr5","brand":"G.Skill","name":"Trident Z5 RGB 64 GB (2x32) DDR5-6000","memory":"DDR5","modules":2,"size_gb":64,"speed":6000}
+  ]
+}

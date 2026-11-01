@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": {"model": "virtual_mashine:block/case_small"},
+    "facing=east": {"model": "virtual_mashine:block/case_small", "y": 90},
+    "facing=south": {"model": "virtual_mashine:block/case_small", "y": 180},
+    "facing=west": {"model": "virtual_mashine:block/case_small", "y": 270}
+  }
+}

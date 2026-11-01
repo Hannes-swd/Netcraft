@@ -17,6 +17,9 @@
     "virtual_mashine:hdmi_switch",
     "virtual_mashine:usb_hub",
     "virtual_mashine:speaker",
-    "virtual_mashine:rack"
+    "virtual_mashine:rack",
+    "virtual_mashine:case_small",
+    "virtual_mashine:case_medium",
+    "virtual_mashine:case_large"
   ]
 }

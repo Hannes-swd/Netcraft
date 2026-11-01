@@ -1,6 +1,8 @@
 package dev.hannes.virtual_mashine;
 
 import com.mojang.serialization.Codec;
+import dev.hannes.virtual_mashine.block.CaseBlock;
+import dev.hannes.virtual_mashine.block.CaseBlockEntity;
 import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
@@ -11,6 +13,11 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.item.NetworkTesterItem;
 import dev.hannes.virtual_mashine.item.PhoneItem;
+import dev.hannes.virtual_mashine.item.PcPartItem;
+import dev.hannes.virtual_mashine.pc.CaseSize;
+import dev.hannes.virtual_mashine.pc.PartCategory;
+import dev.hannes.virtual_mashine.pc.PcPart;
+import dev.hannes.virtual_mashine.pc.PcParts;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
@@ -52,6 +59,13 @@ public final class ModRegistry {
             BuiltInRegistries.DATA_COMPONENT_TYPE,
             Virtual_mashine.id("cable_color"),
             DataComponentType.<Integer>builder().persistent(Codec.INT).networkSynchronized(ByteBufCodecs.INT).build()
+    );
+
+    /** Which real part a PC part item is (id from the pc_parts data files). */
+    public static final DataComponentType<String> PC_PART = Registry.register(
+            BuiltInRegistries.DATA_COMPONENT_TYPE,
+            Virtual_mashine.id("pc_part"),
+            DataComponentType.<String>builder().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
     );
 
     public static final Map<DeviceType, Block> DEVICE_BLOCKS = new EnumMap<>(DeviceType.class);
@@ -120,6 +134,32 @@ public final class ModRegistry {
     );
 
 
+    public static final Map<PartCategory, Item> PART_ITEMS = new EnumMap<>(PartCategory.class);
+    public static final Map<CaseSize, Block> CASE_BLOCKS = new EnumMap<>(CaseSize.class);
+
+    static {
+        for (PartCategory category : PartCategory.values()) {
+            PART_ITEMS.put(category, item(category.id, properties -> new PcPartItem(category, properties.stacksTo(16))));
+        }
+        for (CaseSize size : CaseSize.values()) {
+            Block block = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id(size.id), new CaseBlock(size,
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.COLOR_BLACK)
+                            .strength(2.0F, 6.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()));
+            CASE_BLOCKS.put(size, block);
+            Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(size.id), new BlockItem(block, new Item.Properties()));
+        }
+    }
+
+    public static final BlockEntityType<CaseBlockEntity> CASE_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Virtual_mashine.id("pc_case"),
+            FabricBlockEntityTypeBuilder.create(CaseBlockEntity::new, CASE_BLOCKS.values().toArray(new Block[0])).build()
+    );
+
     private ModRegistry() {
     }
 
@@ -138,6 +178,21 @@ public final class ModRegistry {
         cablesAndTools.add(CABLE_CLIP);
         cablesAndTools.add(NETWORK_TESTER);
         tab("cables", CABLES.get(CableType.CAT6), cablesAndTools.toArray(new Item[0]));
+        ResourceKey<CreativeModeTab> parts = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id("pc_parts"));
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, parts, FabricItemGroup.builder()
+                .title(Component.translatable("itemGroup.virtual_mashine.pc_parts"))
+                .icon(() -> new ItemStack(CASE_BLOCKS.get(CaseSize.MEDIUM)))
+                .displayItems((parameters, output) -> {
+                    for (Block block : CASE_BLOCKS.values()) {
+                        output.accept(block);
+                    }
+                    for (PartCategory category : PartCategory.values()) {
+                        for (PcPart part : PcParts.of(category)) {
+                            output.accept(PcPartItem.stackOf(part));
+                        }
+                    }
+                })
+                .build());
     }
 
     private static void tab(String name, Item icon, Item... items) {

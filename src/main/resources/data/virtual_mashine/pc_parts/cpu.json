@@ -1,0 +1,16 @@
+{
+  "_note": "Herstellerangaben. tdp = Basisleistung (W). igpu = integrierte Grafik (Bild ohne Grafikkarte). box_cooler = Kuehler liegt bei.",
+  "parts": [
+    {"id":"intel_i3_12100f","brand":"Intel","name":"Core i3-12100F","socket":"LGA1700","cores":4,"threads":8,"base_ghz":3.3,"boost_ghz":4.3,"tdp":58,"memory":["DDR4","DDR5"],"igpu":false,"box_cooler":true},
+    {"id":"intel_i5_12400f","brand":"Intel","name":"Core i5-12400F","socket":"LGA1700","cores":6,"threads":12,"base_ghz":2.5,"boost_ghz":4.4,"tdp":65,"memory":["DDR4","DDR5"],"igpu":false,"box_cooler":true},
+    {"id":"intel_i5_13600k","brand":"Intel","name":"Core i5-13600K","socket":"LGA1700","cores":14,"threads":20,"base_ghz":3.5,"boost_ghz":5.1,"tdp":125,"memory":["DDR4","DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"intel_i7_14700k","brand":"Intel","name":"Core i7-14700K","socket":"LGA1700","cores":20,"threads":28,"base_ghz":3.4,"boost_ghz":5.6,"tdp":125,"memory":["DDR4","DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"intel_i9_14900k","brand":"Intel","name":"Core i9-14900K","socket":"LGA1700","cores":24,"threads":32,"base_ghz":3.2,"boost_ghz":6.0,"tdp":125,"memory":["DDR4","DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"intel_ultra7_265k","brand":"Intel","name":"Core Ultra 7 265K","socket":"LGA1851","cores":20,"threads":20,"base_ghz":3.9,"boost_ghz":5.5,"tdp":125,"memory":["DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"amd_r5_5600x","brand":"AMD","name":"Ryzen 5 5600X","socket":"AM4","cores":6,"threads":12,"base_ghz":3.7,"boost_ghz":4.6,"tdp":65,"memory":["DDR4"],"igpu":false,"box_cooler":true},
+    {"id":"amd_r7_5800x3d","brand":"AMD","name":"Ryzen 7 5800X3D","socket":"AM4","cores":8,"threads":16,"base_ghz":3.4,"boost_ghz":4.5,"tdp":105,"memory":["DDR4"],"igpu":false,"box_cooler":false},
+    {"id":"amd_r5_7600x","brand":"AMD","name":"Ryzen 5 7600X","socket":"AM5","cores":6,"threads":12,"base_ghz":4.7,"boost_ghz":5.3,"tdp":105,"memory":["DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"amd_r7_7800x3d","brand":"AMD","name":"Ryzen 7 7800X3D","socket":"AM5","cores":8,"threads":16,"base_ghz":4.2,"boost_ghz":5.0,"tdp":120,"memory":["DDR5"],"igpu":true,"box_cooler":false},
+    {"id":"amd_r9_9950x","brand":"AMD","name":"Ryzen 9 9950X","socket":"AM5","cores":16,"threads":32,"base_ghz":4.3,"boost_ghz":5.7,"tdp":170,"memory":["DDR5"],"igpu":true,"box_cooler":false}
+  ]
+}

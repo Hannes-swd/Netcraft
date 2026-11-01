@@ -10,6 +10,9 @@ public final class PcNetworking {
     }
 
     public static void registerCommon() {
+        PayloadTypeRegistry.playC2S().register(CasePayload.TYPE, CasePayload.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(CasePayload.TYPE,
+                (payload, context) -> dev.hannes.virtual_mashine.block.CaseBlockEntity.handle(context.player(), payload));
         PayloadTypeRegistry.playS2C().register(PcInfoPayload.TYPE, PcInfoPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PcActionPayload.TYPE, PcActionPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TunnelPayloads.Open.TYPE, TunnelPayloads.Open.CODEC);
