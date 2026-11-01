@@ -102,6 +102,10 @@ public class Virtual_mashineClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_ENTITIES.register(CableRenderer::render);
         BlockEntityRenderers.register(ModRegistry.DEVICE_BLOCK_ENTITY, DeviceLedRenderer::new);
         BlockEntityRenderers.register(ModRegistry.RACK_BLOCK_ENTITY, RackRenderer::new);
+        // The glass side panel of the cases is see-through.
+        for (net.minecraft.world.level.block.Block block : ModRegistry.CASE_BLOCKS.values()) {
+            net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(block, net.minecraft.client.renderer.RenderType.translucent());
+        }
         dev.hannes.virtual_mashine.block.CaseBlock.openScreen =
                 pos -> Minecraft.getInstance().setScreen(new dev.hannes.virtual_mashine.client.screen.CaseScreen(pos));
         dev.hannes.virtual_mashine.item.PcPartItem.shiftDown = net.minecraft.client.gui.screens.Screen::hasShiftDown;

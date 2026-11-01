@@ -185,7 +185,7 @@ public class CaseScreen extends Screen {
         Rect b = new Rect(x0 + (int) (14 * k), y0 + (int) (14 * k), (int) (dims[0] * k), (int) (dims[1] * k));
         if (board != null) {
             Rect cpu = frac(b, 0.28, 0.10, 0.24, 0.20);
-            int grow = (int) (6 * k);
+            int grow = Math.max(6, (int) (11 * k));
             layout.put("cooler", new Rect(cpu.x - grow, cpu.y - grow, cpu.w + 2 * grow, cpu.h + 2 * grow));
             layout.put("cpu", cpu);
             int kits = board.num("ram_slots") / 2;
@@ -204,17 +204,16 @@ public class CaseScreen extends Screen {
         }
     }
 
-    /** The place under the mouse; the cooler sits over the CPU and wins only when it is there or held. */
+    /** The place under the mouse; the cooler is the frame around the CPU (or anywhere on it while one is held). */
     private @Nullable String slotAt(double mx, double my) {
         PcPart heldPart = heldPart();
         for (Map.Entry<String, Rect> entry : layout.entrySet()) {
             String slot = entry.getKey();
             if (!entry.getValue().contains(mx, my)) continue;
             if (slot.equals("cooler")) {
-                boolean coolerIn = build.get("cooler") != null;
                 boolean holdingCooler = heldPart != null && heldPart.category() == PartCategory.COOLER;
                 boolean onCpu = layout.get("cpu").contains(mx, my);
-                if (coolerIn || holdingCooler || (!onCpu && build.get("cpu") != null)) return slot;
+                if (holdingCooler || (!onCpu && build.get("cpu") != null)) return slot;
                 continue;
             }
             return slot;
@@ -237,12 +236,63 @@ public class CaseScreen extends Screen {
         }
     }
 
+    /**
+     * A name inside a place, shrunk to fit (down to half size, then shortened); tall narrow places
+     * like RAM slots get it written upwards.
+     */
     private void label(GuiGraphics g, Rect r, String text, int color, boolean top) {
-        String fitted = font.plainSubstrByWidth(text, Math.max(0, r.w - 4));
-        if (fitted.isEmpty() || r.h < 9) return;
-        int x = r.x + (r.w - font.width(fitted)) / 2;
-        int y = top ? r.y + 3 : r.y + (r.h - 8) / 2;
-        g.drawString(font, fitted, x, y, color, true);
+        boolean vertical = !top && r.h > r.w * 1.6F;
+        int along = vertical ? r.h : r.w;
+        int across = top ? Math.min(r.h, 12) : vertical ? r.w : r.h;
+        int textWidth = font.width(text);
+        if (textWidth == 0 || along < 6 || across < 4) return;
+        float s = Math.min(1F, Math.min((along - 4) / (float) textWidth, (across - 1) / 9F));
+        if (s < 0.5F) {
+            s = 0.5F;
+            text = font.plainSubstrByWidth(text, (int) ((along - 4) / s));
+            textWidth = font.width(text);
+            if (text.isEmpty()) return;
+        }
+        g.pose().pushPose();
+        float cx = r.x + r.w / 2F;
+        float cy = top ? r.y + 1 + 4.5F * s : r.y + r.h / 2F;
+        g.pose().translate(cx, cy, 0);
+        if (vertical) g.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-90));
+        g.pose().scale(s, s, 1);
+        g.drawString(font, text, -textWidth / 2, -4, color, true);
+        g.pose().popPose();
+    }
+
+    /** The cooler is a frame around the CPU, so the CPU stays visible in its middle. */
+    private void drawCooler(GuiGraphics g, Rect r) {
+        Rect cpu = layout.get("cpu");
+        Rect band = new Rect(r.x, r.y, r.w, cpu.y - r.y);
+        PcPart cooler = build.get("cooler");
+        if (cooler != null) {
+            int color = PartCategory.COOLER.color;
+            g.fill(r.x, r.y, r.x + r.w, cpu.y, color);
+            g.fill(r.x, cpu.y + cpu.h, r.x + r.w, r.y + r.h, color);
+            g.fill(r.x, cpu.y, cpu.x, cpu.y + cpu.h, color);
+            g.fill(cpu.x + cpu.w, cpu.y, r.x + r.w, cpu.y + cpu.h, color);
+            g.renderOutline(r.x, r.y, r.w, r.h, 0xFF000000);
+            g.renderOutline(cpu.x - 1, cpu.y - 1, cpu.w + 2, cpu.h + 2, 0xFF000000);
+            label(g, band, cooler.name(), WHITE, false);
+            return;
+        }
+        PcPart heldPart = heldPart();
+        int color = GRAY;
+        if (heldPart != null) {
+            if (build.canInstall("cooler", heldPart) == null) {
+                color = GREEN;
+                g.fill(r.x, r.y, r.x + r.w, r.y + r.h, 0x3055FF55);
+            } else {
+                color = heldPart.category() == PartCategory.COOLER ? RED : 0xFF505050;
+            }
+        }
+        dashed(g, r, color);
+        PcPart cpu0 = build.get("cpu");
+        String text = cpu0 != null && cpu0.bool("box_cooler") ? tr("cooler_stock").getString() : PcBuild.slotLabel("cooler").getString();
+        label(g, band, text, color, false);
     }
 
     private void drawSlot(GuiGraphics g, String slot, Rect r) {
@@ -277,22 +327,19 @@ public class CaseScreen extends Screen {
         Rect c = caseRect;
         g.fill(c.x - 3, c.y - 3, c.x + c.w + 3, c.y + c.h + 3, 0xFF15161A);
         g.fill(c.x, c.y, c.x + c.w, c.y + c.h, 0xFF2A2C31);
-        g.drawString(font, build.size().displayName(), c.x, c.y - 12, WHITE, true);
+        PcPart board0 = build.get("mainboard");
+        String title = build.size().displayName().getString() + (board0 != null ? "  -  " + board0.fullName() : "");
+        g.drawString(font, font.plainSubstrByWidth(title, Math.max(c.w, 120)), c.x, c.y - 12, WHITE, true);
 
         drawSlot(g, "mainboard", layout.get("mainboard"));
-        PcPart board = build.get("mainboard");
-        if (board != null) {
-            Rect b = layout.get("mainboard");
-            g.drawString(font, font.plainSubstrByWidth(board.fullName(), b.w - 6), b.x + 3, b.y + b.h - 11, 0xFFB8E0C0, true);
-        }
         for (Map.Entry<String, Rect> entry : layout.entrySet()) {
             String slot = entry.getKey();
             if (slot.equals("mainboard") || slot.equals("cooler")) continue;
             drawSlot(g, slot, entry.getValue());
         }
-        // The cooler on top of the CPU: drawn when built in, or as an outline once the CPU is there.
+        // The cooler around the CPU: drawn when built in, or as an outline once the CPU is there.
         if (layout.containsKey("cooler") && (build.get("cooler") != null || build.get("cpu") != null)) {
-            drawSlot(g, "cooler", layout.get("cooler"));
+            drawCooler(g, layout.get("cooler"));
         }
     }
 

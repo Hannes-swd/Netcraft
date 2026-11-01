@@ -4,7 +4,9 @@
     "particle": "virtual_mashine:block/case_side",
     "front": "virtual_mashine:block/case_front",
     "side": "virtual_mashine:block/case_side",
-    "top": "virtual_mashine:block/case_top"
+    "window": "virtual_mashine:block/case_window",
+    "top": "virtual_mashine:block/case_top",
+    "inner": "virtual_mashine:block/case_inner"
   },
   "elements": [
     {
@@ -13,11 +15,16 @@
       "faces": {
         "north": {"texture": "#front"},
         "south": {"texture": "#side"},
-        "east": {"texture": "#side"},
+        "east": {"texture": "#window"},
         "west": {"texture": "#side"},
         "up": {"texture": "#top"},
         "down": {"texture": "#top"}
       }
-    }
+    },
+    {"from": [3, 0, 1], "to": [4, 15, 15], "faces": {"east": {"texture": "#inner"}}},
+    {"from": [3, 0, 1], "to": [13, 1, 15], "faces": {"up": {"texture": "#inner"}}},
+    {"from": [3, 14, 1], "to": [13, 15, 15], "faces": {"down": {"texture": "#inner"}}},
+    {"from": [3, 0, 1], "to": [13, 15, 2], "faces": {"south": {"texture": "#inner"}}},
+    {"from": [3, 0, 14], "to": [13, 15, 15], "faces": {"north": {"texture": "#inner"}}}
   ]
 }

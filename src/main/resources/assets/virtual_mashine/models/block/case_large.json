@@ -4,7 +4,9 @@
     "particle": "virtual_mashine:block/case_side",
     "front": "virtual_mashine:block/case_front",
     "side": "virtual_mashine:block/case_side",
-    "top": "virtual_mashine:block/case_top"
+    "window": "virtual_mashine:block/case_window",
+    "top": "virtual_mashine:block/case_top",
+    "inner": "virtual_mashine:block/case_inner"
   },
   "elements": [
     {
@@ -13,11 +15,16 @@
       "faces": {
         "north": {"texture": "#front"},
         "south": {"texture": "#side"},
-        "east": {"texture": "#side"},
+        "east": {"texture": "#window"},
         "west": {"texture": "#side"},
         "up": {"texture": "#top"},
         "down": {"texture": "#top"}
       }
-    }
+    },
+    {"from": [2, 0, 0], "to": [3, 16, 16], "faces": {"east": {"texture": "#inner"}}},
+    {"from": [2, 0, 0], "to": [14, 1, 16], "faces": {"up": {"texture": "#inner"}}},
+    {"from": [2, 15, 0], "to": [14, 16, 16], "faces": {"down": {"texture": "#inner"}}},
+    {"from": [2, 0, 0], "to": [14, 16, 1], "faces": {"south": {"texture": "#inner"}}},
+    {"from": [2, 0, 15], "to": [14, 16, 16], "faces": {"north": {"texture": "#inner"}}}
   ]
 }
