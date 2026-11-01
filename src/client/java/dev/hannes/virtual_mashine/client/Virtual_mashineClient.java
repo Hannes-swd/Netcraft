@@ -102,27 +102,6 @@ public class Virtual_mashineClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_ENTITIES.register(CableRenderer::render);
         BlockEntityRenderers.register(ModRegistry.DEVICE_BLOCK_ENTITY, DeviceLedRenderer::new);
         BlockEntityRenderers.register(ModRegistry.RACK_BLOCK_ENTITY, RackRenderer::new);
-        // The glass side panel of the cases is see-through.
-        for (net.minecraft.world.level.block.Block block : ModRegistry.CASE_BLOCKS.values()) {
-            net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(block, net.minecraft.client.renderer.RenderType.translucent());
-        }
-        dev.hannes.virtual_mashine.block.CaseBlock.openScreen =
-                pos -> Minecraft.getInstance().setScreen(new dev.hannes.virtual_mashine.client.screen.CaseScreen(pos));
-        dev.hannes.virtual_mashine.item.PcPartItem.shiftDown = net.minecraft.client.gui.screens.Screen::hasShiftDown;
-        dev.hannes.virtual_mashine.block.PartFabricatorBlock.openScreen =
-                pos -> Minecraft.getInstance().setScreen(new dev.hannes.virtual_mashine.client.screen.FabricatorScreen(pos));
-        // A case item carries the parts built into it.
-        net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> {
-            java.util.Map<String, String> parts = stack.get(ModRegistry.PC_BUILD);
-            if (parts == null || parts.isEmpty()) return;
-            lines.add(net.minecraft.network.chat.Component.translatable("virtual_mashine.case.parts", parts.size()).withStyle(net.minecraft.ChatFormatting.GRAY));
-            if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
-                for (String id : parts.values()) {
-                    dev.hannes.virtual_mashine.pc.PcPart part = dev.hannes.virtual_mashine.pc.PcParts.get(id);
-                    if (part != null) lines.add(net.minecraft.network.chat.Component.literal(" " + part.fullName()).withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
-                }
-            }
-        });
     }
 
     private static void onPortView(NetPayloads.PortView view, Minecraft minecraft) {

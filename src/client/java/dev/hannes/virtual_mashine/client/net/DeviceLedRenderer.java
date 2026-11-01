@@ -46,9 +46,6 @@ public final class DeviceLedRenderer implements BlockEntityRenderer<DeviceBlockE
         if (!(blockState.getBlock() instanceof DeviceBlock block)) {
             return;
         }
-        if (block instanceof dev.hannes.virtual_mashine.block.CaseBlock caseBlock) {
-            CasePartsRenderer.render(caseBlock, blockState, device.build(), poseStack, buffers, packedLight, packedOverlay);
-        }
         DeviceType type = block.deviceType();
         Direction facing = blockState.getValue(DeviceBlock.FACING);
         int link = device.linkLeds();

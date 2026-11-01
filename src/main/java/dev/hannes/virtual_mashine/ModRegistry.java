@@ -1,8 +1,6 @@
 package dev.hannes.virtual_mashine;
 
 import com.mojang.serialization.Codec;
-import dev.hannes.virtual_mashine.block.CaseBlock;
-import dev.hannes.virtual_mashine.block.PartFabricatorBlock;
 import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
@@ -13,12 +11,6 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.item.NetworkTesterItem;
 import dev.hannes.virtual_mashine.item.PhoneItem;
-import dev.hannes.virtual_mashine.item.PcPartItem;
-import dev.hannes.virtual_mashine.item.PartTemplateItem;
-import dev.hannes.virtual_mashine.pc.CaseSize;
-import dev.hannes.virtual_mashine.pc.PartCategory;
-import dev.hannes.virtual_mashine.pc.PcPart;
-import dev.hannes.virtual_mashine.pc.PcParts;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
@@ -60,24 +52,6 @@ public final class ModRegistry {
             BuiltInRegistries.DATA_COMPONENT_TYPE,
             Virtual_mashine.id("cable_color"),
             DataComponentType.<Integer>builder().persistent(Codec.INT).networkSynchronized(ByteBufCodecs.INT).build()
-    );
-
-    /** Slot to part id of the parts in a case; travels with the dropped case. */
-    public static final DataComponentType<Map<String, String>> PC_BUILD = Registry.register(
-            BuiltInRegistries.DATA_COMPONENT_TYPE,
-            Virtual_mashine.id("pc_build"),
-            DataComponentType.<Map<String, String>>builder()
-                    .persistent(Codec.unboundedMap(Codec.STRING, Codec.STRING))
-                    .networkSynchronized(ByteBufCodecs.<io.netty.buffer.ByteBuf, String, String, Map<String, String>>map(
-                            java.util.HashMap::new, ByteBufCodecs.STRING_UTF8, ByteBufCodecs.STRING_UTF8))
-                    .build()
-    );
-
-    /** Which real part a PC part item is (id from the pc_parts data files). */
-    public static final DataComponentType<String> PC_PART = Registry.register(
-            BuiltInRegistries.DATA_COMPONENT_TYPE,
-            Virtual_mashine.id("pc_part"),
-            DataComponentType.<String>builder().persistent(Codec.STRING).networkSynchronized(ByteBufCodecs.STRING_UTF8).build()
     );
 
     public static final Map<DeviceType, Block> DEVICE_BLOCKS = new EnumMap<>(DeviceType.class);
@@ -138,46 +112,11 @@ public final class ModRegistry {
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
 
-    public static final Map<PartCategory, Item> PART_ITEMS = new EnumMap<>(PartCategory.class);
-    /** Blank templates, one per category: made into a real part in the part fabricator. */
-    public static final Map<PartCategory, Item> PART_TEMPLATES = new EnumMap<>(PartCategory.class);
-    /** Buildable PCs: computers like the PC block, but their hardware are the parts built in. */
-    public static final Map<CaseSize, Block> CASE_BLOCKS = new EnumMap<>(CaseSize.class);
-
-    static {
-        for (PartCategory category : PartCategory.values()) {
-            PART_ITEMS.put(category, item(category.id, properties -> new PcPartItem(category, properties.stacksTo(16))));
-            PART_TEMPLATES.put(category, item(category.id + "_template", PartTemplateItem::new));
-        }
-        for (CaseSize size : CaseSize.values()) {
-            Block block = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id(size.id), new CaseBlock(size,
-                    BlockBehaviour.Properties.of()
-                            .mapColor(MapColor.COLOR_BLACK)
-                            .strength(2.0F, 6.0F)
-                            .sound(SoundType.METAL)
-                            .requiresCorrectToolForDrops()
-                            .noOcclusion()
-                            .isRedstoneConductor((state, level, pos) -> false)
-                            .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? 5 : 0)));
-            CASE_BLOCKS.put(size, block);
-            Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(size.id), new BlockItem(block, new Item.Properties().stacksTo(1)));
-        }
-    }
-
-    public static final Block PART_FABRICATOR_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("part_fabricator"),
-            new PartFabricatorBlock(BlockBehaviour.Properties.of()
-                    .mapColor(MapColor.METAL)
-                    .strength(2.5F, 6.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()));
-    public static final Item PART_FABRICATOR = item("part_fabricator", properties -> new BlockItem(PART_FABRICATOR_BLOCK, properties));
-
-    /** Registry id stays "pc" so PCs from earlier versions keep their machine. Cases are devices too. */
+    /** Registry id stays "pc" so PCs from earlier versions keep their machine. */
     public static final BlockEntityType<DeviceBlockEntity> DEVICE_BLOCK_ENTITY = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
             Virtual_mashine.id("pc"),
-            FabricBlockEntityTypeBuilder.create(DeviceBlockEntity::new, java.util.stream.Stream.concat(
-                    DEVICE_BLOCKS.values().stream(), CASE_BLOCKS.values().stream()).toArray(Block[]::new)).build()
+            FabricBlockEntityTypeBuilder.create(DeviceBlockEntity::new, DEVICE_BLOCKS.values().toArray(new Block[0])).build()
     );
 
 
@@ -199,35 +138,6 @@ public final class ModRegistry {
         cablesAndTools.add(CABLE_CLIP);
         cablesAndTools.add(NETWORK_TESTER);
         tab("cables", CABLES.get(CableType.CAT6), cablesAndTools.toArray(new Item[0]));
-        ResourceKey<CreativeModeTab> parts = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id("pc_parts"));
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, parts, FabricItemGroup.builder()
-                .title(Component.translatable("itemGroup.virtual_mashine.pc_parts"))
-                .icon(() -> new ItemStack(CASE_BLOCKS.get(CaseSize.MEDIUM)))
-                .displayItems((parameters, output) -> {
-                    for (Block block : CASE_BLOCKS.values()) {
-                        output.accept(block);
-                    }
-                    output.accept(PART_FABRICATOR);
-                    for (Item template : PART_TEMPLATES.values()) {
-                        output.accept(template);
-                    }
-                })
-                .build());
-        // One tab per kind of part: its template first, then every model.
-        for (PartCategory category : PartCategory.values()) {
-            ResourceKey<CreativeModeTab> key = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id("pc_" + category.id));
-            Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricItemGroup.builder()
-                    .title(Component.translatable("itemGroup.virtual_mashine.pc_" + category.id))
-                    .icon(() -> PcParts.of(category).isEmpty() ? new ItemStack(PART_ITEMS.get(category))
-                            : PcPartItem.stackOf(PcParts.of(category).get(PcParts.of(category).size() - 1)))
-                    .displayItems((parameters, output) -> {
-                        output.accept(PART_TEMPLATES.get(category));
-                        for (PcPart part : PcParts.of(category)) {
-                            output.accept(PcPartItem.stackOf(part));
-                        }
-                    })
-                    .build());
-        }
     }
 
     private static void tab(String name, Item icon, Item... items) {

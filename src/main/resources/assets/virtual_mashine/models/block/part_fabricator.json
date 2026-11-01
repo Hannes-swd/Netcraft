@@ -1,8 +1,0 @@
-{
-  "parent": "minecraft:block/orientable",
-  "textures": {
-    "front": "virtual_mashine:block/part_fabricator_front",
-    "side": "virtual_mashine:block/part_fabricator_side",
-    "top": "virtual_mashine:block/part_fabricator_top"
-  }
-}

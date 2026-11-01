@@ -10,17 +10,6 @@ public final class PcNetworking {
     }
 
     public static void registerCommon() {
-        PayloadTypeRegistry.playC2S().register(CasePayload.TYPE, CasePayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(FabricatePayload.TYPE, FabricatePayload.CODEC);
-        ServerPlayNetworking.registerGlobalReceiver(FabricatePayload.TYPE, (payload, context) -> {
-            var player = context.player();
-            if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(payload.pos())) <= 64
-                    && player.level().getBlockState(payload.pos()).getBlock() instanceof dev.hannes.virtual_mashine.block.PartFabricatorBlock) {
-                dev.hannes.virtual_mashine.pc.PartCosts.fabricate(player, payload.partId());
-            }
-        });
-        ServerPlayNetworking.registerGlobalReceiver(CasePayload.TYPE,
-                (payload, context) -> dev.hannes.virtual_mashine.pc.CaseActions.handle(context.player(), payload));
         PayloadTypeRegistry.playS2C().register(PcInfoPayload.TYPE, PcInfoPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PcActionPayload.TYPE, PcActionPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TunnelPayloads.Open.TYPE, TunnelPayloads.Open.CODEC);

@@ -1,8 +1,0 @@
-{
-  "variants": {
-    "facing=north": {"model": "virtual_mashine:block/part_fabricator"},
-    "facing=east": {"model": "virtual_mashine:block/part_fabricator", "y": 90},
-    "facing=south": {"model": "virtual_mashine:block/part_fabricator", "y": 180},
-    "facing=west": {"model": "virtual_mashine:block/part_fabricator", "y": 270}
-  }
-}

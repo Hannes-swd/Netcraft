@@ -52,33 +52,17 @@ public class DeviceBlockEntity extends BlockEntity {
     private int speakerVolume = dev.hannes.virtual_mashine.net.NetworkManager.SPEAKER_DEFAULT_VOLUME;
     /** Speaker: mono, left or right channel. */
     private int speakerChannel;
-    /** PC case: slot to part id of the parts built in (empty for every other device). */
-    private final java.util.Map<String, String> buildParts = new java.util.LinkedHashMap<>();
-    /** The parts changed since the machine was last told. */
-    private boolean buildDirty = true;
 
     public DeviceBlockEntity(BlockPos pos, BlockState state) {
-        super(ModRegistry.DEVICE_BLOCK_ENTITY, pos, state);
+        this(ModRegistry.DEVICE_BLOCK_ENTITY, pos, state);
     }
 
-    public dev.hannes.virtual_mashine.pc.PcBuild build() {
-        dev.hannes.virtual_mashine.pc.CaseSize size = getBlockState().getBlock() instanceof CaseBlock block
-                ? block.size() : dev.hannes.virtual_mashine.pc.CaseSize.MEDIUM;
-        return new dev.hannes.virtual_mashine.pc.PcBuild(size, java.util.Collections.unmodifiableMap(buildParts));
-    }
-
-    /** Puts a part into a case slot (null = takes it out). */
-    public void setPart(String slot, @Nullable String partId) {
-        if (partId == null) {
-            buildParts.remove(slot);
-        } else {
-            buildParts.put(slot, partId);
-        }
-        buildDirty = true;
-        setChanged();
-        if (level != null) {
-            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
-        }
+    /**
+     * For add-on mods with device blocks of their own (e.g. the PC cases of Netcraft: PC Builder): their own
+     * block entity type, which still runs, takes cables and shows its screen like every Netcraft device.
+     */
+    protected DeviceBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
     }
 
     public UUID getOrCreatePcId() {
@@ -208,10 +192,6 @@ public class DeviceBlockEntity extends BlockEntity {
             return;
         }
         device.getOrCreatePcId();
-        if (block instanceof CaseBlock && device.buildDirty) {
-            dev.hannes.virtual_mashine.pc.BuiltPcs.update(device.pcId, device.build());
-            device.buildDirty = false;
-        }
         VmManager manager = VmManager.get();
         if (manager == null) {
             return;
@@ -285,12 +265,6 @@ public class DeviceBlockEntity extends BlockEntity {
         micMode = tag.getInt("mic_mode");
         speakerVolume = tag.contains("speaker_volume") ? tag.getInt("speaker_volume") : dev.hannes.virtual_mashine.net.NetworkManager.SPEAKER_DEFAULT_VOLUME;
         speakerChannel = tag.getInt("speaker_channel");
-        buildParts.clear();
-        CompoundTag build = tag.getCompound("build");
-        for (String slot : build.getAllKeys()) {
-            buildParts.put(slot, build.getString(slot));
-        }
-        buildDirty = true;
     }
 
     @Override
@@ -314,11 +288,6 @@ public class DeviceBlockEntity extends BlockEntity {
         tag.putInt("mic_mode", micMode);
         tag.putInt("speaker_volume", speakerVolume);
         tag.putInt("speaker_channel", speakerChannel);
-        if (!buildParts.isEmpty()) {
-            CompoundTag build = new CompoundTag();
-            buildParts.forEach(build::putString);
-            tag.put("build", build);
-        }
     }
 
     @Override
@@ -338,12 +307,6 @@ public class DeviceBlockEntity extends BlockEntity {
         if (fromItem != null) {
             pcId = fromItem;
         }
-        java.util.Map<String, String> parts = components.get(ModRegistry.PC_BUILD);
-        if (parts != null) {
-            buildParts.clear();
-            buildParts.putAll(parts);
-            buildDirty = true;
-        }
     }
 
     @Override
@@ -352,15 +315,11 @@ public class DeviceBlockEntity extends BlockEntity {
         if (pcId != null) {
             components.set(ModRegistry.PC_ID, pcId);
         }
-        if (!buildParts.isEmpty()) {
-            components.set(ModRegistry.PC_BUILD, java.util.Map.copyOf(buildParts));
-        }
     }
 
     @Override
     public void removeComponentsFromTag(CompoundTag tag) {
         super.removeComponentsFromTag(tag);
         tag.remove("pc_id");
-        tag.remove("build");
     }
 }

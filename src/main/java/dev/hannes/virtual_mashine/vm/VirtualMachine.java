@@ -425,8 +425,10 @@ public final class VirtualMachine {
             return;
         }
         if (!config.frozen) {
-            if (!dev.hannes.virtual_mashine.pc.BuiltPcs.prepare(id, config)) {
-                setMessage("virtual_mashine.msg.build_blocked", "");
+            // Add-ons may refuse the start or set the hardware (see NetcraftApi).
+            String blocked = dev.hannes.virtual_mashine.api.NetcraftApi.checkStart(id, config);
+            if (blocked != null) {
+                setMessage(blocked, "");
                 manager.onVmChanged(this);
                 return;
             }
