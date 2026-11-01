@@ -9,7 +9,7 @@ import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.resources.sounds.TickableSoundInstance;
 import net.minecraft.client.sounds.JOrbisAudioStream;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
@@ -71,7 +71,7 @@ public final class GameSoundTap {
 
     private static final Map<UUID, Job> JOBS = new HashMap<>();
     private static final List<Voice> VOICES = new ArrayList<>();
-    private static final Map<Identifier, CompletableFuture<short @Nullable []>> CLIPS = new LinkedHashMap<>(64, 0.75F, true);
+    private static final Map<ResourceLocation, CompletableFuture<short @Nullable []>> CLIPS = new LinkedHashMap<>(64, 0.75F, true);
     private static final ExecutorService DECODER = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "virtual_mashine-game-sound-decoder");
         thread.setDaemon(true);
@@ -103,7 +103,7 @@ public final class GameSoundTap {
         }
         Sound sound = instance.getSound();
         if (sound == null || Virtual_mashine.MOD_ID.equals(sound.getLocation().getNamespace())
-                || Virtual_mashine.MOD_ID.equals(instance.getIdentifier().getNamespace())) {
+                || Virtual_mashine.MOD_ID.equals(instance.getLocation().getNamespace())) {
             return; // The machines' own sound: a computer must not hear itself.
         }
         float volume = instance.getVolume();
@@ -217,7 +217,7 @@ public final class GameSoundTap {
     // ---------------------------------------------------------------- decoding
 
     /** The sound file as mono 16-bit samples at {@link #RATE}, decoded once in the background. */
-    private static CompletableFuture<short @Nullable []> clip(Identifier path) {
+    private static CompletableFuture<short @Nullable []> clip(ResourceLocation path) {
         CompletableFuture<short @Nullable []> cached = CLIPS.get(path);
         if (cached != null) {
             return cached;
@@ -240,7 +240,7 @@ public final class GameSoundTap {
         return future;
     }
 
-    private static short @Nullable [] decode(Identifier path) {
+    private static short @Nullable [] decode(ResourceLocation path) {
         try (InputStream in = Minecraft.getInstance().getResourceManager().open(path);
              JOrbisAudioStream stream = new JOrbisAudioStream(in)) {
             int channels = Math.max(1, stream.getFormat().getChannels());

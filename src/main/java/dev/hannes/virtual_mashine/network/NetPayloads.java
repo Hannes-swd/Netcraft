@@ -326,8 +326,11 @@ public final class NetPayloads {
         }
     }
 
-    /** One cable as the client draws it: socket, the clips it hangs from, socket. */
-    public record CableVisual(List<Vec3> points, int color) {
+    /**
+     * One cable as the client draws it: socket, the clips it hangs from, socket; a {@code patch} cable inside
+     * a rack instead gives the four points of a smooth curve.
+     */
+    public record CableVisual(List<Vec3> points, int color, boolean patch) {
     }
 
     private static void writePoints(RegistryFriendlyByteBuf buf, List<Vec3> points) {
@@ -357,13 +360,14 @@ public final class NetPayloads {
                     for (CableVisual c : payload.cables) {
                         writePoints(buf, c.points());
                         buf.writeInt(c.color());
+                        buf.writeBoolean(c.patch());
                     }
                 },
                 buf -> {
                     int count = Math.min(buf.readVarInt(), 100_000);
                     List<CableVisual> cables = new ArrayList<>(count);
                     for (int i = 0; i < count; i++) {
-                        cables.add(new CableVisual(readPoints(buf), buf.readInt()));
+                        cables.add(new CableVisual(readPoints(buf), buf.readInt(), buf.readBoolean()));
                     }
                     return new CableSync(cables);
                 });
@@ -441,6 +445,44 @@ public final class NetPayloads {
                     UUIDUtil.STREAM_CODEC.encode(buf, payload.cable);
                 },
                 buf -> new ClipAction(buf.readBlockPos(), UUIDUtil.STREAM_CODEC.decode(buf)));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Server to client: open (or refresh) the volume knob of a speaker. */
+    public record SpeakerView(UUID speaker, BlockPos pos, int volume, int channel, String source, boolean playing) implements CustomPacketPayload {
+        public static final Type<SpeakerView> TYPE = new Type<>(Virtual_mashine.id("speaker_view"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, SpeakerView> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    UUIDUtil.STREAM_CODEC.encode(buf, payload.speaker);
+                    buf.writeBlockPos(payload.pos);
+                    buf.writeVarInt(payload.volume);
+                    buf.writeByte(payload.channel);
+                    buf.writeUtf(payload.source, 128);
+                    buf.writeBoolean(payload.playing);
+                },
+                buf -> new SpeakerView(UUIDUtil.STREAM_CODEC.decode(buf), buf.readBlockPos(), buf.readVarInt(), buf.readByte(), buf.readUtf(128), buf.readBoolean()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client to server: the volume knob of a speaker was turned (percent). */
+    public record SpeakerAction(UUID speaker, BlockPos pos, int volume, int channel) implements CustomPacketPayload {
+        public static final Type<SpeakerAction> TYPE = new Type<>(Virtual_mashine.id("speaker_action"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, SpeakerAction> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    UUIDUtil.STREAM_CODEC.encode(buf, payload.speaker);
+                    buf.writeBlockPos(payload.pos);
+                    buf.writeVarInt(payload.volume);
+                    buf.writeByte(payload.channel);
+                },
+                buf -> new SpeakerAction(UUIDUtil.STREAM_CODEC.decode(buf), buf.readBlockPos(), buf.readVarInt(), buf.readByte()));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

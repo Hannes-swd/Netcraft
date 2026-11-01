@@ -6,18 +6,18 @@ import dev.hannes.virtual_mashine.network.PcActionPayload;
 import dev.hannes.virtual_mashine.network.PcInfoPayload;
 import dev.hannes.virtual_mashine.vm.CiscoImage;
 import dev.hannes.virtual_mashine.vm.VmConfig;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.ConfirmScreen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
+import dev.hannes.virtual_mashine.client.input.CharacterEvent;
+import dev.hannes.virtual_mashine.client.input.KeyEvent;
+import dev.hannes.virtual_mashine.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import org.jspecify.annotations.Nullable;
 
 import java.nio.file.Path;
@@ -132,7 +132,7 @@ public class PcControlScreen extends PcScreen {
         });
         addRenderableWidget(diskSlider);
         bootButton = CycleButton.booleanBuilder(Component.translatable("virtual_mashine.option.boot.cd"),
-                        Component.translatable("virtual_mashine.option.boot.disk"), config.bootFromCd)
+                        Component.translatable("virtual_mashine.option.boot.disk")).withInitialValue(config.bootFromCd)
                 .withTooltip(v -> Tooltip.create(Component.translatable("virtual_mashine.option.boot.tooltip")))
                 .create(right, y, half, 20, Component.translatable("virtual_mashine.option.boot"), (button, v) -> {
                     config.bootFromCd = v;
@@ -165,8 +165,9 @@ public class PcControlScreen extends PcScreen {
         addRenderableWidget(clipboardButton);
         y += ROW;
 
-        networkButton = CycleButton.<String>builder(mode -> Component.translatable("virtual_mashine.option.network." + mode), config.netMode)
+        networkButton = CycleButton.<String>builder(mode -> Component.translatable("virtual_mashine.option.network." + mode))
                 .withValues(VmConfig.NET_CABLE, VmConfig.NET_DIRECT, VmConfig.NET_OFF)
+                .withInitialValue(config.netMode)
                 .withTooltip(mode -> Tooltip.create(Component.translatable("virtual_mashine.option.network." + mode + ".tooltip")))
                 .create(left, y, half, 20, Component.translatable("virtual_mashine.option.network"), (button, mode) -> {
                     config.netMode = mode;
@@ -196,7 +197,7 @@ public class PcControlScreen extends PcScreen {
         addRenderableWidget(autoStartButton);
         // Graphics card: several screens for HDMI monitors, or the plain VGA card of older versions.
         screensButton = CycleButton.booleanBuilder(Component.translatable("virtual_mashine.option.screens.multi"),
-                        Component.translatable("virtual_mashine.option.screens.single"), config.multiScreen)
+                        Component.translatable("virtual_mashine.option.screens.single")).withInitialValue(config.multiScreen)
                 .withTooltip(v -> Tooltip.create(Component.translatable("virtual_mashine.option.screens.tooltip")))
                 .create(left + soundWidth + 4, y, half - soundWidth - 4, 20, Component.translatable("virtual_mashine.option.screens"),
                         (button, v) -> {
@@ -205,8 +206,9 @@ public class PcControlScreen extends PcScreen {
                         });
         screensButton.active = DeviceType.byId(config.type).hasVideoOutputs();
         addRenderableWidget(screensButton);
-        nicButton = CycleButton.<String>builder(Component::literal, config.nicModel)
+        nicButton = CycleButton.<String>builder(Component::literal)
                 .withValues(VmConfig.NIC_MODELS)
+                .withInitialValue(config.nicModel)
                 .withTooltip(v -> Tooltip.create(Component.translatable("virtual_mashine.option.nic.tooltip")))
                 .create(right, y, half, 20, Component.translatable("virtual_mashine.option.nic"), (button, v) -> {
                     config.nicModel = v;
@@ -433,10 +435,10 @@ public class PcControlScreen extends PcScreen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
         Dropdown<?> dropdown = openDropdown();
         // While a list is open, nothing underneath lights up or shows its tooltip.
-        super.extractRenderState(graphics, dropdown != null ? -1 : mouseX, dropdown != null ? -1 : mouseY, a);
+        super.render(graphics, dropdown != null ? -1 : mouseX, dropdown != null ? -1 : mouseY, a);
         extractTexts(graphics);
         if (dropdown != null) {
             dropdown.extractPopup(graphics, mouseX, mouseY, width, height);
@@ -453,21 +455,24 @@ public class PcControlScreen extends PcScreen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         Dropdown<?> dropdown = openDropdown();
-        return dropdown != null ? dropdown.popupMouseClicked(event) : super.mouseClicked(event, doubleClick);
+        return dropdown != null ? dropdown.popupMouseClicked(event) : super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         Dropdown<?> dropdown = openDropdown();
-        return dropdown != null ? dropdown.popupMouseDragged(event) : super.mouseDragged(event, dx, dy);
+        return dropdown != null ? dropdown.popupMouseDragged(event) : super.mouseDragged(mouseX, mouseY, button, dx, dy);
     }
 
     @Override
-    public boolean mouseReleased(MouseButtonEvent event) {
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         Dropdown<?> dropdown = openDropdown();
-        return dropdown != null ? dropdown.popupMouseReleased() : super.mouseReleased(event);
+        return dropdown != null ? dropdown.popupMouseReleased() : super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -477,15 +482,17 @@ public class PcControlScreen extends PcScreen {
     }
 
     @Override
-    public boolean keyPressed(KeyEvent event) {
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        KeyEvent event = new KeyEvent(keyCode, scanCode, modifiers);
         Dropdown<?> dropdown = openDropdown();
-        return dropdown != null ? dropdown.popupKeyPressed(event) : super.keyPressed(event);
+        return dropdown != null ? dropdown.popupKeyPressed(event) : super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
-    public boolean charTyped(CharacterEvent event) {
+    public boolean charTyped(char chr, int modifiers) {
+        CharacterEvent event = new CharacterEvent(chr, modifiers);
         Dropdown<?> dropdown = openDropdown();
-        return dropdown != null ? dropdown.popupCharTyped(event) : super.charTyped(event);
+        return dropdown != null ? dropdown.popupCharTyped(event) : super.charTyped(chr, modifiers);
     }
 
     /** Gray note at the end of an image's row: what system it is. */
@@ -497,11 +504,11 @@ public class PcControlScreen extends PcScreen {
         return image.toLowerCase(Locale.ROOT).startsWith("openwrt") ? Component.literal("OpenWrt") : null;
     }
 
-    private void extractTexts(GuiGraphicsExtractor graphics) {
+    private void extractTexts(GuiGraphics graphics) {
         Component title = Component.translatable("virtual_mashine.screen.control", config.name);
-        graphics.text(font, title, left, top + 4, WHITE);
+        graphics.drawString(font, title, left, top + 4, WHITE);
         Component state = stateText();
-        graphics.text(font, state, left + PANEL_WIDTH - font.width(state), top + 4, stateColor());
+        graphics.drawString(font, state, left + PANEL_WIDTH - font.width(state), top + 4, stateColor());
 
         Component message = messageText();
         int y = messageY;
@@ -513,7 +520,7 @@ public class PcControlScreen extends PcScreen {
             Component warning = Component.translatable("virtual_mashine.hint.ram_low", formatRam(info.hostFreeRamMb()), formatRam(config.ramMb));
             lines.addAll(font.split(warning, PANEL_WIDTH));
             for (int i = 0; i < Math.min(3, lines.size()); i++) {
-                graphics.text(font, lines.get(i), left, y + i * 10, YELLOW);
+                graphics.drawString(font, lines.get(i), left, y + i * 10, YELLOW);
             }
             return;
         }
@@ -525,13 +532,13 @@ public class PcControlScreen extends PcScreen {
                     : Component.translatable("virtual_mashine.hint.not_freezable");
             lines.addAll(font.split(hint, PANEL_WIDTH));
             for (int i = 0; i < Math.min(3, lines.size()); i++) {
-                graphics.text(font, lines.get(i), left, y + i * 10, GRAY);
+                graphics.drawString(font, lines.get(i), left, y + i * 10, GRAY);
             }
             return;
         }
         int color = messageIsError() ? RED : YELLOW;
         for (int i = 0; i < Math.min(3, lines.size()); i++) {
-            graphics.text(font, lines.get(i), left, y + i * 10, color);
+            graphics.drawString(font, lines.get(i), left, y + i * 10, color);
         }
     }
 

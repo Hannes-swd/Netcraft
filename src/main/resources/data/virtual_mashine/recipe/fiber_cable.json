@@ -5,8 +5,8 @@
     "SGS"
   ],
   "key": {
-    "S": "minecraft:string",
-    "G": "minecraft:glass_pane"
+    "S": {"item": "minecraft:string"},
+    "G": {"item": "minecraft:glass_pane"}
   },
   "result": {
     "id": "virtual_mashine:fiber_cable",

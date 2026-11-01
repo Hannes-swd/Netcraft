@@ -4,12 +4,14 @@ import com.mojang.serialization.Codec;
 import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
+import dev.hannes.virtual_mashine.block.RackBlock;
+import dev.hannes.virtual_mashine.block.RackBlockEntity;
 import dev.hannes.virtual_mashine.device.CableType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.item.NetworkTesterItem;
 import dev.hannes.virtual_mashine.item.PhoneItem;
-import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
@@ -57,7 +59,7 @@ public final class ModRegistry {
     public static final Map<CableType, Item> CABLES = new EnumMap<>(CableType.class);
 
     public static final Block PC_BLOCK = device(DeviceType.PC, Shapes.or(Block.box(0, 0, 0, 16, 5, 16), Block.box(2, 5, 2, 14, 15, 14)), MapColor.SAND, 7);
-    public static final Block SERVER_BLOCK = device(DeviceType.SERVER, Block.box(2, 0, 2, 14, 15, 14), MapColor.COLOR_GRAY, 3);
+    public static final Block SERVER_BLOCK = device(DeviceType.SERVER, Block.box(0, 0, 0, 16, 16, 16), MapColor.COLOR_GRAY, 3);
     public static final Block ROUTER_BLOCK = device(DeviceType.ROUTER, Block.box(2, 0, 2, 14, 3, 14), MapColor.COLOR_BLACK, 3);
     public static final Block MANAGED_SWITCH_BLOCK = device(DeviceType.MANAGED_SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.COLOR_BLUE, 3);
     public static final Block SWITCH_BLOCK = device(DeviceType.SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.METAL, 3);
@@ -73,6 +75,7 @@ public final class ModRegistry {
             Shapes.or(Block.box(6, 0, 6, 10, 3, 10), Block.box(4, 3, 4, 12, 9, 12)), MapColor.COLOR_BLACK, 1);
     public static final Block HDMI_SWITCH_BLOCK = device(DeviceType.HDMI_SWITCH, Block.box(3, 0, 4, 13, 3, 12), MapColor.COLOR_BLACK, 1);
     public static final Block USB_HUB_BLOCK = device(DeviceType.USB_HUB, Block.box(4, 0, 5, 12, 2, 11), MapColor.COLOR_GRAY, 1);
+    public static final Block SPEAKER_BLOCK = device(DeviceType.SPEAKER, Block.box(4, 0, 4, 12, 14, 12), MapColor.COLOR_BLACK, 1);
 
     public static final Item PC_ITEM = DEVICE_ITEMS.get(DeviceType.PC);
 
@@ -82,14 +85,29 @@ public final class ModRegistry {
         }
     }
 
-    public static final Block CABLE_CLIP_BLOCK = Blocks.register(ResourceKey.create(Registries.BLOCK, Virtual_mashine.id("cable_clip")),
-            CableClipBlock::new, BlockBehaviour.Properties.of()
+    public static final Block CABLE_CLIP_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("cable_clip"),
+            new CableClipBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_GRAY)
                     .strength(0.3F)
                     .sound(SoundType.STONE)
-                    .noCollision()
-                    .noOcclusion());
-    public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties.useBlockDescriptionPrefix()));
+                    .noCollission()
+                    .noOcclusion()));
+    public static final Item CABLE_CLIP = item("cable_clip", properties -> new BlockItem(CABLE_CLIP_BLOCK, properties));
+
+    public static final Block RACK_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("rack"),
+            new RackBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .dynamicShape() // the hitbox follows the mounted devices
+                    .strength(2.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+    public static final Item RACK = item("rack", properties -> new BlockItem(RACK_BLOCK, properties));
+    public static final BlockEntityType<RackBlockEntity> RACK_BLOCK_ENTITY = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            Virtual_mashine.id("rack"),
+            FabricBlockEntityTypeBuilder.create(RackBlockEntity::new, RACK_BLOCK).build()
+    );
 
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
@@ -109,9 +127,10 @@ public final class ModRegistry {
     public static void register() {
         tab("devices", DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.LAPTOP),
                 PHONE, DEVICE_ITEMS.get(DeviceType.SERVER), DEVICE_ITEMS.get(DeviceType.DISPLAY), DEVICE_ITEMS.get(DeviceType.HDMI_SWITCH),
-                DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA));
+                DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA),
+                DEVICE_ITEMS.get(DeviceType.SPEAKER));
         tab("network_devices", DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.HUB),
-                DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT));
+                DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT), RACK);
         tab("internet", DEVICE_ITEMS.get(DeviceType.MODEM), DEVICE_ITEMS.get(DeviceType.MODEM));
         tab("automation", DEVICE_ITEMS.get(DeviceType.IO_MODULE), DEVICE_ITEMS.get(DeviceType.IO_MODULE),
                 DEVICE_ITEMS.get(DeviceType.DISPLAY));
@@ -123,7 +142,7 @@ public final class ModRegistry {
 
     private static void tab(String name, Item icon, Item... items) {
         ResourceKey<CreativeModeTab> key = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id(name));
-        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricCreativeModeTab.builder()
+        Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricItemGroup.builder()
                 .title(Component.translatable("itemGroup.virtual_mashine." + name))
                 .icon(() -> new ItemStack(icon))
                 .displayItems((parameters, output) -> {
@@ -135,8 +154,7 @@ public final class ModRegistry {
     }
 
     private static Block device(DeviceType type, VoxelShape shape, MapColor color, int light) {
-        ResourceKey<Block> blockKey = ResourceKey.create(Registries.BLOCK, Virtual_mashine.id(type.id));
-        Block block = Blocks.register(blockKey, properties -> new DeviceBlock(type, shape, properties),
+        Block block = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id(type.id), new DeviceBlock(type, shape,
                 BlockBehaviour.Properties.of()
                         .mapColor(color)
                         .strength(2.0F, 6.0F)
@@ -145,17 +163,14 @@ public final class ModRegistry {
                         .noOcclusion()
                         // Not a conductor: an I/O module's faces carry exactly their own channel, nothing passes through.
                         .isRedstoneConductor((state, level, pos) -> false)
-                        .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? light : 0));
-        ResourceKey<Item> itemKey = ResourceKey.create(Registries.ITEM, Virtual_mashine.id(type.id));
-        Item item = Registry.register(BuiltInRegistries.ITEM, itemKey,
-                new BlockItem(block, new Item.Properties().setId(itemKey).useBlockDescriptionPrefix()));
+                        .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? light : 0)));
+        Item item = Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(type.id), new BlockItem(block, new Item.Properties()));
         DEVICE_BLOCKS.put(type, block);
         DEVICE_ITEMS.put(type, item);
         return block;
     }
 
     private static Item item(String name, Function<Item.Properties, Item> factory) {
-        ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, Virtual_mashine.id(name));
-        return Registry.register(BuiltInRegistries.ITEM, key, factory.apply(new Item.Properties().setId(key)));
+        return Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(name), factory.apply(new Item.Properties()));
     }
 }

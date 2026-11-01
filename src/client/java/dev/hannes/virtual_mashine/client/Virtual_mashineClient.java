@@ -3,14 +3,14 @@ package dev.hannes.virtual_mashine.client;
 import dev.hannes.virtual_mashine.ModRegistry;
 import dev.hannes.virtual_mashine.client.net.CableRenderer;
 import dev.hannes.virtual_mashine.client.net.DeviceLedRenderer;
+import dev.hannes.virtual_mashine.client.net.RackRenderer;
 import dev.hannes.virtual_mashine.client.display.DisplayManager;
 import dev.hannes.virtual_mashine.client.media.CameraCapture;
 import dev.hannes.virtual_mashine.client.media.GameSoundTap;
 import dev.hannes.virtual_mashine.client.media.MicCapture;
 import dev.hannes.virtual_mashine.client.media.VmSound;
 import dev.hannes.virtual_mashine.network.MediaPayloads;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import dev.hannes.virtual_mashine.Virtual_mashine;
 import dev.hannes.virtual_mashine.client.screen.AccessPointScreen;
 import dev.hannes.virtual_mashine.client.screen.CableClipScreen;
@@ -25,7 +25,7 @@ import dev.hannes.virtual_mashine.network.TunnelPayloads;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 
@@ -40,6 +40,14 @@ public class Virtual_mashineClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.PortView.TYPE, (payload, context) -> onPortView(payload, context.client()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.CableSync.TYPE, (payload, context) -> CableRenderer.setCables(payload.cables()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.HeldCable.TYPE, (payload, context) -> CableRenderer.setHeld(payload));
+        ClientPlayNetworking.registerGlobalReceiver(NetPayloads.SpeakerView.TYPE, (payload, context) -> {
+            Minecraft minecraft = context.client();
+            if (minecraft.screen instanceof dev.hannes.virtual_mashine.client.screen.SpeakerScreen screen && screen.speakerPos().equals(payload.pos())) {
+                screen.update(payload);
+            } else {
+                minecraft.setScreen(new dev.hannes.virtual_mashine.client.screen.SpeakerScreen(payload));
+            }
+        });
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.ClipView.TYPE, (payload, context) -> {
             Minecraft minecraft = context.client();
             if (minecraft.screen instanceof CableClipScreen screen && screen.clipPos().equals(payload.pos())) {
@@ -80,8 +88,8 @@ public class Virtual_mashineClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(VmSound::tick);
         ClientTickEvents.END_CLIENT_TICK.register(MicCapture::tick);
         ClientTickEvents.END_CLIENT_TICK.register(GameSoundTap::tick);
-        HudElementRegistry.attachElementAfter(VanillaHudElements.MISC_OVERLAYS, Virtual_mashine.id("microphone"), MicCapture::hud);
-        HudElementRegistry.attachElementAfter(VanillaHudElements.MISC_OVERLAYS, Virtual_mashine.id("monitor_control"), DisplayManager::hud);
+        HudRenderCallback.EVENT.register(MicCapture::hud);
+        HudRenderCallback.EVENT.register(DisplayManager::hud);
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             DisplayManager.disconnectAll();
             VmSound.stopAll();
@@ -91,8 +99,9 @@ public class Virtual_mashineClient implements ClientModInitializer {
             TunnelTransport.closeAll();
             CableRenderer.clear();
         });
-        LevelRenderEvents.COLLECT_SUBMITS.register(CableRenderer::render);
+        WorldRenderEvents.AFTER_ENTITIES.register(CableRenderer::render);
         BlockEntityRenderers.register(ModRegistry.DEVICE_BLOCK_ENTITY, DeviceLedRenderer::new);
+        BlockEntityRenderers.register(ModRegistry.RACK_BLOCK_ENTITY, RackRenderer::new);
     }
 
     private static void onPortView(NetPayloads.PortView view, Minecraft minecraft) {

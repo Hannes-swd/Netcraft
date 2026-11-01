@@ -65,7 +65,12 @@ for dir in /etc/firefox-esr/policies /etc/firefox/policies; do
     python3 - "$dir/policies.json" <<'EOF'
 import json, os, sys
 path = sys.argv[1]
-data = json.load(open(path)) if os.path.exists(path) else {}
+try:
+    data = json.load(open(path))
+except (OSError, ValueError):
+    data = {}  # Missing, empty or broken: start fresh.
+if not isinstance(data, dict):
+    data = {}
 policies = data.setdefault("policies", {})
 prefs = policies.setdefault("Preferences", {})
 for name in ("media.devices.insecure.enabled", "media.getusermedia.insecure.enabled"):

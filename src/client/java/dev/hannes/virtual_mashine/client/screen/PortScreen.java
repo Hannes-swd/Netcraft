@@ -4,10 +4,10 @@ import dev.hannes.virtual_mashine.device.CableType;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import dev.hannes.virtual_mashine.network.NetPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
+import dev.hannes.virtual_mashine.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
@@ -118,27 +118,28 @@ public class PortScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
         int port = socketAt(event.x(), event.y());
         if (port >= 0) {
             NetPayloads.PortInfo info = view.ports().get(port);
             send(info.state() == NetPayloads.PortInfo.FREE ? NetPayloads.PortAction.PLUG : NetPayloads.PortAction.UNPLUG, port);
             return true;
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-        super.extractRenderState(graphics, mouseX, mouseY, a);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
+        super.render(graphics, mouseX, mouseY, a);
         Component title = Component.translatable(tester ? "virtual_mashine.ports.tester_heading" : "virtual_mashine.ports.heading", view.deviceName());
-        graphics.centeredText(font, title, width / 2, panelY - 26, WHITE);
+        graphics.drawCenteredString(font, title, width / 2, panelY - 26, WHITE);
         Component power = Component.translatable(view.powered() ? "virtual_mashine.ports.powered" : "virtual_mashine.ports.unpowered");
-        graphics.centeredText(font, power, width / 2, panelY - 14, view.powered() ? GREEN : GRAY);
+        graphics.drawCenteredString(font, power, width / 2, panelY - 14, view.powered() ? GREEN : GRAY);
 
         // Housing.
         graphics.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF2B2D31);
-        graphics.outline(panelX, panelY, panelW, panelH, 0xFF55585E);
+        graphics.renderOutline(panelX, panelY, panelW, panelH, 0xFF55585E);
         boolean blink = (System.currentTimeMillis() / 120) % 2 == 0;
         for (int i = 0; i < view.ports().size(); i++) {
             drawSocket(graphics, i, view.ports().get(i), blink, mouseX, mouseY);
@@ -146,7 +147,7 @@ public class PortScreen extends Screen {
 
         int y = panelY + panelH + 8;
         for (FormattedCharSequence line : statusLines()) {
-            graphics.centeredText(font, line, width / 2, y, YELLOW);
+            graphics.drawCenteredString(font, line, width / 2, y, YELLOW);
             y += 10;
         }
 
@@ -156,16 +157,20 @@ public class PortScreen extends Screen {
             for (Component line : tooltip(hovered)) {
                 lines.add(line.getVisualOrderText());
             }
-            graphics.setTooltipForNextFrame(lines, mouseX, mouseY);
+            graphics.renderTooltip(font, lines, mouseX, mouseY);
         }
     }
 
-    private void drawSocket(GuiGraphicsExtractor graphics, int index, NetPayloads.PortInfo port, boolean blink, int mouseX, int mouseY) {
+    private void drawSocket(GuiGraphics graphics, int index, NetPayloads.PortInfo port, boolean blink, int mouseX, int mouseY) {
         int x = socketX(index);
         int y = socketY();
         boolean hover = socketAt(mouseX, mouseY) == index;
         if (isUsb(index)) {
             drawUsbSocket(graphics, x, y, port, hover);
+            return;
+        }
+        if (isAudio(index)) {
+            drawAudioSocket(graphics, x, y, port, hover);
             return;
         }
         if (isHdmi(index)) {
@@ -191,10 +196,10 @@ public class PortScreen extends Screen {
         }
         String name = port.name();
         int nameWidth = font.width(name);
-        graphics.text(font, name, x + (socketWidth - nameWidth) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
+        graphics.drawString(font, name, x + (socketWidth - nameWidth) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
         if (tester && port.link() && !port.console()) {
             String speed = port.speedMbit() >= 1000 ? (port.speedMbit() / 1000) + "G" : port.speedMbit() + "M";
-            graphics.text(font, speed, x + (socketWidth - font.width(speed)) / 2, y + SOCKET_H + 13, YELLOW, false);
+            graphics.drawString(font, speed, x + (socketWidth - font.width(speed)) / 2, y + SOCKET_H + 13, YELLOW, false);
         }
     }
 
@@ -202,12 +207,32 @@ public class PortScreen extends Screen {
         return DeviceType.byId(view.deviceType()).isUsbPort(index);
     }
 
+    private boolean isAudio(int index) {
+        return DeviceType.byId(view.deviceType()).isAudioPort(index);
+    }
+
+    /** A 3.5 mm jack: a round hole with a green ring (line out / audio). */
+    private void drawAudioSocket(GuiGraphics graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
+        graphics.fill(x, y, x + socketWidth, y + SOCKET_H, hover ? 0xFF5C5F66 : 0xFF3C3E43);
+        int cx = x + socketWidth / 2;
+        int cy = y + SOCKET_H / 2;
+        graphics.fill(cx - 6, cy - 5, cx + 6, cy + 5, 0xFF3DAA4F);
+        graphics.fill(cx - 5, cy - 6, cx + 5, cy + 6, 0xFF3DAA4F);
+        graphics.fill(cx - 3, cy - 3, cx + 3, cy + 3, 0xFF101114);
+        if (port.state() != NetPayloads.PortInfo.FREE) {
+            graphics.fill(cx - 4, cy - 4, cx + 4, cy + 4, 0xFF000000 | port.color());
+            graphics.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFFB8BCC2);
+        }
+        String name = port.name();
+        graphics.drawString(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
+    }
+
     private boolean isHdmi(int index) {
         return DeviceType.byId(view.deviceType()).isHdmiPort(index);
     }
 
     /** An HDMI socket: wide, with the bevelled lower corners; the plug in the cable's colour. */
-    private void drawHdmiSocket(GuiGraphicsExtractor graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
+    private void drawHdmiSocket(GuiGraphics graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
         graphics.fill(x, y, x + socketWidth, y + SOCKET_H, hover ? 0xFF5C5F66 : 0xFF3C3E43);
         int holeX = x + 4;
         int holeY = y + 8;
@@ -222,11 +247,11 @@ public class PortScreen extends Screen {
         // Picture LED: lit while a running computer's picture goes through this socket.
         graphics.fill(x + socketWidth / 2 - 2, y + 2, x + socketWidth / 2 + 2, y + 5, port.link() ? 0xFF3DA8FF : 0xFF1A2633);
         String name = port.name();
-        graphics.text(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
+        graphics.drawString(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
     }
 
     /** A flat USB-A socket: no LEDs, the plug in the cable's colour. */
-    private void drawUsbSocket(GuiGraphicsExtractor graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
+    private void drawUsbSocket(GuiGraphics graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
         graphics.fill(x, y, x + socketWidth, y + SOCKET_H, hover ? 0xFF5C5F66 : 0xFF3C3E43);
         int holeX = x + 5;
         int holeY = y + 9;
@@ -238,18 +263,20 @@ public class PortScreen extends Screen {
             graphics.fill(holeX + 1, holeY, holeX + holeW - 1, holeY + 8, 0xFFB8BCC2);
         }
         String name = port.name();
-        graphics.text(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
+        graphics.drawString(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
     }
 
     private List<Component> tooltip(int index) {
         NetPayloads.PortInfo port = view.ports().get(index);
-        if (!isUsb(index) && !isHdmi(index)) {
+        if (!isUsb(index) && !isHdmi(index) && !isAudio(index)) {
             return tooltip(port);
         }
         DeviceType type = DeviceType.byId(view.deviceType());
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal(port.name()));
-        if (isHdmi(index)) {
+        if (isAudio(index)) {
+            lines.add(Component.translatable(type.isAudioOutput(index) ? "virtual_mashine.ports.tip.audio_out" : "virtual_mashine.ports.tip.audio_in"));
+        } else if (isHdmi(index)) {
             lines.add(Component.translatable(type.isHdmiOutput(index) ? "virtual_mashine.ports.tip.hdmi_out" : "virtual_mashine.ports.tip.hdmi_in"));
         } else {
             lines.add(Component.translatable(type.isUsbUpstream(index) ? "virtual_mashine.ports.tip.usb_up" : "virtual_mashine.ports.tip.usb"));
@@ -257,7 +284,9 @@ public class PortScreen extends Screen {
         switch (port.state()) {
             case NetPayloads.PortInfo.CONNECTED -> {
                 lines.add(Component.translatable("virtual_mashine.ports.tip.connected", port.peer()));
-                if (isHdmi(index)) {
+                if (isAudio(index)) {
+                    lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.sound" : "virtual_mashine.ports.tip.no_sound"));
+                } else if (isHdmi(index)) {
                     lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.picture" : "virtual_mashine.ports.tip.no_picture"));
                 } else {
                     lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.link" : "virtual_mashine.ports.tip.no_link"));

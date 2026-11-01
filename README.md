@@ -87,7 +87,7 @@ Ordner `vm_isos/` neben dem Minecraft-Spiel liegen. Unterstützte Image-Endungen
 
 ## Netzwerke bauen
 
-Creative-Tabs: **Endgeräte** (PC, Laptop, Server), **Netzwerkgeräte** (Switch, Hub, Managed Switch, Router,
+Creative-Tabs: **Endgeräte** (PC, Laptop, Server), **Netzwerkgeräte** (Switch, Hub, Managed Switch, Router, Rack,
 Access Point), **Internet** (Internet-Anschluss) und **Kabel & Werkzeug**.
 
 | Gerät | Was es ist | Ports |
@@ -108,6 +108,13 @@ Konsolenkabel (COM1 ↔ Console). Kabel in die Hand, Gerät rechtsklicken, Port 
 ebenfalls. Abziehen: Schleichen + Rechtsklick, belegten Port anklicken – das Betriebssystem sieht dabei ein
 echtes „Kabel gezogen“. LEDs am Gerät: grün = Link, orange = Datenverkehr. Farbe: Schleichen + Rechtsklick
 in die Luft. **Netzwerk-Tester:** zeigt Geschwindigkeit, MAC-Adresse und Datenverkehr jedes Ports.
+
+**Rack:** Rechtsklick mit Switch, Hub, Managed Switch, Router, Server oder Modem baut das Gerät ein – sie
+stapeln sich von unten nach oben und behalten ihre Höhe (15 Pixel Platz: z. B. drei Switches und ein Router, oder ein Server).
+Jedes Gerät hat im Rack seine eigene Hitbox: Rechtsklick öffnet wie sonst Bildschirm bzw. Anschlüsse, abbauen
+nimmt nur das anvisierte Gerät heraus (es behält seine Festplatte). Kabel zwischen Geräten im selben Rack oder
+in Racks, die neben- oder übereinander stehen, laufen innen als geschwungene Patchkabel. Oben auf dem Rack
+ist eine Deckplatte: dort kann z. B. ein Laptop stehen.
 
 **Kabelhalter:** an jede Blockseite setzen (Wand, Boden, Decke). Erstes Kabelende einstecken, dann mit dem
 Kabel in der Hand nacheinander die Halter rechtsklicken – das Kabel läuft über sie wie mit Kabelbindern

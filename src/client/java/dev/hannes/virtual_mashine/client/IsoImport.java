@@ -57,6 +57,6 @@ public final class IsoImport {
 
     private static void toast(Component title, Component message) {
         Minecraft minecraft = Minecraft.getInstance();
-        minecraft.execute(() -> SystemToast.addOrUpdate(minecraft.getToastManager(), TOAST, title, message));
+        minecraft.execute(() -> SystemToast.addOrUpdate(minecraft.getToasts(), TOAST, title, message));
     }
 }
