@@ -51,15 +51,15 @@ public class PcPartItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal(category.label).withStyle(ChatFormatting.GRAY));
+        tooltip.add(category.displayName().copy().withStyle(ChatFormatting.GRAY));
         PcPart part = part(stack);
         if (part == null) return;
         if (shiftDown.getAsBoolean()) {
-            for (String line : part.details()) {
-                tooltip.add(Component.literal(line).withStyle(ChatFormatting.DARK_AQUA));
+            for (Component line : part.details()) {
+                tooltip.add(line.copy().withStyle(ChatFormatting.DARK_AQUA));
             }
         } else {
-            tooltip.add(Component.literal("Hold Shift for details").withStyle(ChatFormatting.DARK_GRAY));
+            tooltip.add(Component.translatable("virtual_mashine.part.hold_shift").withStyle(ChatFormatting.DARK_GRAY));
         }
     }
 }

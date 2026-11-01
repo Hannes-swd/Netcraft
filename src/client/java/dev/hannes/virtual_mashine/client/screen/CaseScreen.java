@@ -61,15 +61,21 @@ public class CaseScreen extends Screen {
     private int scroll;
     /** Inventory slot of the part being dragged, -1 = none. */
     private int held = -1;
-    private String message = "";
+    private @Nullable Component message;
     private long messageUntil;
     private Button powerButton;
     private Button screenButton;
 
     public CaseScreen(BlockPos pos) {
-        super(Component.literal("PC Case"));
+        super(Component.translatable("virtual_mashine.case.title"));
         this.pos = pos;
     }
+
+    private static net.minecraft.network.chat.MutableComponent tr(String key, Object... args) {
+        return Component.translatable("virtual_mashine.case." + key, args);
+    }
+
+    private static final Component LOCKED = Component.translatable("virtual_mashine.build.locked");
 
     private @Nullable DeviceBlockEntity entity() {
         return minecraft != null && minecraft.level != null && minecraft.level.getBlockState(pos).getBlock() instanceof CaseBlock
@@ -84,10 +90,10 @@ public class CaseScreen extends Screen {
 
     @Override
     protected void init() {
-        powerButton = addRenderableWidget(Button.builder(Component.literal("Power On"), b -> {
+        powerButton = addRenderableWidget(Button.builder(tr("power_on"), b -> {
             send(powered() ? CasePayload.SHUTDOWN : CasePayload.POWER_ON, "", -1);
         }).bounds(width - 108, 2, 100, 18).build());
-        screenButton = addRenderableWidget(Button.builder(Component.literal("Open Screen"), b -> send(CasePayload.SCREEN, "", -1))
+        screenButton = addRenderableWidget(Button.builder(tr("open_screen"), b -> send(CasePayload.SCREEN, "", -1))
                 .bounds(width - 212, 2, 100, 18).build());
         updateButtons();
     }
@@ -95,7 +101,7 @@ public class CaseScreen extends Screen {
     private void updateButtons() {
         if (powerButton == null) return;
         boolean on = powered();
-        powerButton.setMessage(Component.literal(on ? "Shut Down" : "Power On"));
+        powerButton.setMessage(tr(on ? "shut_down" : "power_on"));
         DeviceBlockEntity e = entity();
         powerButton.active = on || e != null && e.build().bootable();
         screenButton.active = on;
@@ -259,10 +265,10 @@ public class CaseScreen extends Screen {
             }
         }
         dashed(g, r, color);
-        String text = PcBuild.slotLabel(slot);
+        String text = PcBuild.slotLabel(slot).getString();
         if (slot.equals("cooler")) {
             PcPart cpu = build.get("cpu");
-            if (cpu != null && cpu.bool("box_cooler")) text = "Cooler (stock ok)";
+            if (cpu != null && cpu.bool("box_cooler")) text = tr("cooler_stock").getString();
         }
         label(g, r, text, color, slot.equals("mainboard") || slot.equals("cooler"));
     }
@@ -271,7 +277,7 @@ public class CaseScreen extends Screen {
         Rect c = caseRect;
         g.fill(c.x - 3, c.y - 3, c.x + c.w + 3, c.y + c.h + 3, 0xFF15161A);
         g.fill(c.x, c.y, c.x + c.w, c.y + c.h, 0xFF2A2C31);
-        g.drawString(font, build.size().label, c.x, c.y - 12, WHITE, true);
+        g.drawString(font, build.size().displayName(), c.x, c.y - 12, WHITE, true);
 
         drawSlot(g, "mainboard", layout.get("mainboard"));
         PcPart board = build.get("mainboard");
@@ -292,20 +298,20 @@ public class CaseScreen extends Screen {
 
     private void drawList(GuiGraphics g, int mx, int my) {
         g.fill(LIST_X - 2, TOP - 14, LIST_X + LIST_W + 2, listBottom() + 2, 0xC0101014);
-        g.drawString(font, "Your parts", LIST_X + 2, TOP - 11, WHITE, true);
+        g.drawString(font, tr("your_parts"), LIST_X + 2, TOP - 11, WHITE, true);
         List<Row> rows = rows();
         int maxScroll = Math.max(0, rows.size() * ROW - (listBottom() - TOP));
         scroll = Math.max(0, Math.min(scroll, maxScroll));
         g.enableScissor(LIST_X, TOP, LIST_X + LIST_W, listBottom());
         if (rows.isEmpty()) {
-            g.drawWordWrap(font, Component.literal("No PC parts in your inventory."), LIST_X + 4, TOP + 4, LIST_W - 8, GRAY);
+            g.drawWordWrap(font, tr("no_parts"), LIST_X + 4, TOP + 4, LIST_W - 8, GRAY);
         }
         for (int i = 0; i < rows.size(); i++) {
             Row row = rows.get(i);
             int y = TOP + i * ROW - scroll;
             if (y + ROW < TOP || y > listBottom()) continue;
             if (row.part() == null) {
-                g.drawString(font, row.header().label, LIST_X + 2, y + 6, row.header().color | 0xFF606060, true);
+                g.drawString(font, row.header().displayName(), LIST_X + 2, y + 6, row.header().color | 0xFF606060, true);
                 continue;
             }
             boolean hover = new Rect(LIST_X, y, LIST_W, ROW).contains(mx, my);
@@ -325,22 +331,21 @@ public class CaseScreen extends Screen {
     private void drawStatus(GuiGraphics g) {
         int y = caseRect.y + caseRect.h + 10;
         int x = caseRect.x;
-        List<String> missing = build.missing();
-        List<String> problems = build.problems();
+        Component blocker = build.blocker();
+        int maxW = width - x - 8;
         if (powered()) {
-            g.drawString(font, "Running - parts are locked until you shut it down", x, y, GREEN, true);
-        } else if (missing.isEmpty() && problems.isEmpty()) {
-            g.drawString(font, "Ready - connect a monitor (HDMI) and press Power On", x, y, GREEN, true);
-        } else if (!missing.isEmpty()) {
-            g.drawString(font, font.plainSubstrByWidth("Missing: " + String.join(", ", missing), width - x - 8), x, y, RED, true);
+            g.drawString(font, tr("running"), x, y, GREEN, true);
+        } else if (blocker == null) {
+            g.drawString(font, tr("ready"), x, y, GREEN, true);
         } else {
-            g.drawString(font, font.plainSubstrByWidth(problems.get(0), width - x - 8), x, y, ORANGE, true);
+            g.drawString(font, font.plainSubstrByWidth(blocker.getString(), maxW), x, y, build.missing().isEmpty() ? ORANGE : RED, true);
         }
         PcPart psu = build.get("psu");
-        String stats = "vCPUs: " + build.threads() + "   RAM: " + build.ramGb() + " GB   Power: " + build.powerDraw() + " W"
-                + (psu != null ? " / " + psu.num("watts") + " W" : "");
+        Component stats = psu != null
+                ? tr("stats_psu", build.threads(), build.ramGb(), build.powerDraw(), psu.num("watts"))
+                : tr("stats", build.threads(), build.ramGb(), build.powerDraw());
         g.drawString(font, stats, x, y + 12, GRAY, true);
-        if (!message.isEmpty() && Util.getMillis() < messageUntil) {
+        if (message != null && Util.getMillis() < messageUntil) {
             g.drawString(font, message, x, y + 24, RED, true);
         }
     }
@@ -382,8 +387,8 @@ public class CaseScreen extends Screen {
         String slot = slotAt(mx, my);
         if (heldPart != null) {
             if (slot != null && build.get(slot) == null) {
-                String reason = build.canInstall(slot, heldPart);
-                g.renderTooltip(font, Component.literal(reason == null ? "Click to install" : reason)
+                Component reason = build.canInstall(slot, heldPart);
+                g.renderTooltip(font, (reason == null ? tr("click_install") : reason).copy()
                         .withStyle(reason == null ? ChatFormatting.GREEN : ChatFormatting.RED), mx, my);
             }
             return;
@@ -397,19 +402,19 @@ public class CaseScreen extends Screen {
             PcPart part = build.get(slot);
             if (part != null) {
                 List<Component> lines = new ArrayList<>(getTooltipFromItem(minecraft, PcPartItem.stackOf(part)));
-                String reason = build.canRemove(slot);
-                lines.add(Component.literal(reason == null ? "Click to take out" : reason)
+                Component reason = build.canRemove(slot);
+                lines.add((reason == null ? tr("click_remove") : reason).copy()
                         .withStyle(reason == null ? ChatFormatting.YELLOW : ChatFormatting.RED));
                 g.renderComponentTooltip(font, lines, mx, my);
             } else {
-                g.renderTooltip(font, Component.literal("Empty: " + PcBuild.slotLabel(slot)).withStyle(ChatFormatting.GRAY), mx, my);
+                g.renderTooltip(font, tr("empty", PcBuild.slotLabel(slot)).withStyle(ChatFormatting.GRAY), mx, my);
             }
         }
     }
 
     // ---------------------------------------------------------------- input
 
-    private void flash(String text) {
+    private void flash(Component text) {
         message = text;
         messageUntil = Util.getMillis() + 3000;
     }
@@ -426,7 +431,7 @@ public class CaseScreen extends Screen {
             held = -1;
             return;
         }
-        String reason = powered() ? "Shut the PC down before building" : build.canInstall(slot, part);
+        Component reason = powered() ? LOCKED : build.canInstall(slot, part);
         if (reason != null) {
             flash(reason);
         } else {
@@ -448,7 +453,7 @@ public class CaseScreen extends Screen {
             if (held >= 0) {
                 tryInstall(slot);
             } else if (build.get(slot) != null) {
-                String reason = powered() ? "Shut the PC down before building" : build.canRemove(slot);
+                Component reason = powered() ? LOCKED : build.canRemove(slot);
                 if (reason != null) flash(reason);
                 else send(CasePayload.REMOVE, slot, -1);
             }

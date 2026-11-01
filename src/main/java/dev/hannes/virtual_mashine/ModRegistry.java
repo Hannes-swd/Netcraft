@@ -211,13 +211,23 @@ public final class ModRegistry {
                     for (Item template : PART_TEMPLATES.values()) {
                         output.accept(template);
                     }
-                    for (PartCategory category : PartCategory.values()) {
+                })
+                .build());
+        // One tab per kind of part: its template first, then every model.
+        for (PartCategory category : PartCategory.values()) {
+            ResourceKey<CreativeModeTab> key = ResourceKey.create(Registries.CREATIVE_MODE_TAB, Virtual_mashine.id("pc_" + category.id));
+            Registry.register(BuiltInRegistries.CREATIVE_MODE_TAB, key, FabricItemGroup.builder()
+                    .title(Component.translatable("itemGroup.virtual_mashine.pc_" + category.id))
+                    .icon(() -> PcParts.of(category).isEmpty() ? new ItemStack(PART_ITEMS.get(category))
+                            : PcPartItem.stackOf(PcParts.of(category).get(PcParts.of(category).size() - 1)))
+                    .displayItems((parameters, output) -> {
+                        output.accept(PART_TEMPLATES.get(category));
                         for (PcPart part : PcParts.of(category)) {
                             output.accept(PcPartItem.stackOf(part));
                         }
-                    }
-                })
-                .build());
+                    })
+                    .build());
+        }
     }
 
     private static void tab(String name, Item icon, Item... items) {

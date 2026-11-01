@@ -16,6 +16,6 @@ public class PartTemplateItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.literal("Make it into a real part in a Part Fabricator").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("virtual_mashine.template.hint").withStyle(ChatFormatting.GRAY));
     }
 }

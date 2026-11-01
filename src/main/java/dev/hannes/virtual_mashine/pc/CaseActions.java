@@ -23,8 +23,8 @@ public final class CaseActions {
     private CaseActions() {
     }
 
-    private static void deny(ServerPlayer player, String reason) {
-        player.displayClientMessage(Component.literal(reason).withStyle(ChatFormatting.RED), true);
+    private static void deny(ServerPlayer player, Component reason) {
+        player.displayClientMessage(reason.copy().withStyle(ChatFormatting.RED), true);
     }
 
     public static void handle(ServerPlayer player, CasePayload payload) {
@@ -40,7 +40,7 @@ public final class CaseActions {
         switch (payload.action()) {
             case CasePayload.INSTALL -> {
                 if (powered) {
-                    deny(player, "Shut the PC down before building");
+                    deny(player, Component.translatable("virtual_mashine.build.locked"));
                     return;
                 }
                 Inventory inventory = player.getInventory();
@@ -48,7 +48,7 @@ public final class CaseActions {
                 ItemStack stack = inventory.getItem(payload.invSlot());
                 PcPart part = PcPartItem.part(stack);
                 if (part == null) return;
-                String reason = build.canInstall(payload.slot(), part);
+                Component reason = build.canInstall(payload.slot(), part);
                 if (reason != null) {
                     deny(player, reason);
                     return;
@@ -59,12 +59,12 @@ public final class CaseActions {
             }
             case CasePayload.REMOVE -> {
                 if (powered) {
-                    deny(player, "Shut the PC down before building");
+                    deny(player, Component.translatable("virtual_mashine.build.locked"));
                     return;
                 }
                 PcPart part = build.get(payload.slot());
                 if (part == null) return;
-                String reason = build.canRemove(payload.slot());
+                Component reason = build.canRemove(payload.slot());
                 if (reason != null) {
                     deny(player, reason);
                     return;
@@ -77,8 +77,9 @@ public final class CaseActions {
             case CasePayload.POWER_ON -> {
                 if (manager == null || powered) return;
                 BuiltPcs.update(id, build);
-                if (!build.bootable()) {
-                    deny(player, build.missing().isEmpty() ? build.problems().get(0) : "Missing: " + String.join(", ", build.missing()));
+                Component blocker = build.blocker();
+                if (blocker != null) {
+                    deny(player, blocker);
                     return;
                 }
                 manager.autoStart(id, DeviceType.PC);

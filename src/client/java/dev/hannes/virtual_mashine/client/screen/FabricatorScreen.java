@@ -37,7 +37,7 @@ public class FabricatorScreen extends Screen {
     private Button makeButton;
 
     public FabricatorScreen(BlockPos pos) {
-        super(Component.literal("Part Fabricator"));
+        super(Component.translatable("block.virtual_mashine.part_fabricator"));
         this.pos = pos;
     }
 
@@ -61,7 +61,7 @@ public class FabricatorScreen extends Screen {
         int w = total / all.length;
         for (int i = 0; i < all.length; i++) {
             PartCategory c = all[i];
-            Button tab = Button.builder(Component.literal(c.label), b -> {
+            Button tab = Button.builder(c.displayName(), b -> {
                 category = c;
                 selected = null;
                 scroll = 0;
@@ -70,7 +70,7 @@ public class FabricatorScreen extends Screen {
             tab.active = c != category;
             addRenderableWidget(tab);
         }
-        makeButton = addRenderableWidget(Button.builder(Component.literal("Fabricate"), b -> {
+        makeButton = addRenderableWidget(Button.builder(Component.translatable("virtual_mashine.fabricator.make"), b -> {
             if (selected != null && ClientPlayNetworking.canSend(FabricatePayload.TYPE)) {
                 ClientPlayNetworking.send(new FabricatePayload(pos, selected.id()));
             }
@@ -117,17 +117,17 @@ public class FabricatorScreen extends Screen {
         int px = panelX();
         int py = TOP;
         if (selected == null) {
-            g.drawString(font, "Pick a " + category.label + " on the left.", px, py, GRAY, true);
+            g.drawString(font, Component.translatable("virtual_mashine.fabricator.pick", category.displayName()), px, py, GRAY, true);
             return;
         }
         g.drawString(font, selected.fullName(), px, py, WHITE, true);
         py += 14;
-        for (String line : selected.details()) {
+        for (Component line : selected.details()) {
             g.drawString(font, line, px, py, 0xFF55CCCC, true);
             py += 10;
         }
         py += 8;
-        g.drawString(font, "Needs:", px, py, WHITE, true);
+        g.drawString(font, Component.translatable("virtual_mashine.fabricator.needs"), px, py, WHITE, true);
         py += 12;
         boolean creative = minecraft.player.getAbilities().instabuild;
         List<ItemStack> needs = new ArrayList<>();
@@ -141,7 +141,7 @@ public class FabricatorScreen extends Screen {
             py += 18;
         }
         if (creative) {
-            g.drawString(font, "Creative: free", px + 126, height - 24, GRAY, true);
+            g.drawString(font, Component.translatable("virtual_mashine.fabricator.creative"), px + 126, height - 24, GRAY, true);
         }
     }
 

@@ -425,9 +425,8 @@ public final class VirtualMachine {
             return;
         }
         if (!config.frozen) {
-            String blocked = dev.hannes.virtual_mashine.pc.BuiltPcs.prepare(id, config);
-            if (blocked != null) {
-                setMessage("virtual_mashine.msg.build_blocked", blocked);
+            if (!dev.hannes.virtual_mashine.pc.BuiltPcs.prepare(id, config)) {
+                setMessage("virtual_mashine.msg.build_blocked", "");
                 manager.onVmChanged(this);
                 return;
             }

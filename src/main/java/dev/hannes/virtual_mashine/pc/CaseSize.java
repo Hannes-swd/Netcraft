@@ -1,5 +1,7 @@
 package dev.hannes.virtual_mashine.pc;
 
+import net.minecraft.network.chat.Component;
+
 import java.util.List;
 
 /**
@@ -7,12 +9,11 @@ import java.util.List;
  * drawing in the build screen (in layout units).
  */
 public enum CaseSize {
-    SMALL("case_small", "Mini-ITX Case", List.of("ITX"), 330, 155, 280, 0, 2, 250, 200),
-    MEDIUM("case_medium", "Midi Tower", List.of("ATX", "mATX", "ITX"), 360, 170, 360, 2, 2, 330, 240),
-    LARGE("case_large", "Big Tower", List.of("ATX", "mATX", "ITX"), 420, 190, 420, 4, 4, 340, 260);
+    SMALL("case_small", List.of("ITX"), 330, 155, 280, 0, 2, 250, 200),
+    MEDIUM("case_medium", List.of("ATX", "mATX", "ITX"), 360, 170, 360, 2, 2, 330, 240),
+    LARGE("case_large", List.of("ATX", "mATX", "ITX"), 420, 190, 420, 4, 4, 340, 260);
 
     public final String id;
-    public final String label;
     public final List<String> forms;
     public final int maxGpu;
     public final int maxCooler;
@@ -22,10 +23,13 @@ public enum CaseSize {
     public final int width;
     public final int height;
 
-    CaseSize(String id, String label, List<String> forms, int maxGpu, int maxCooler, int maxRadiator,
+    public Component displayName() {
+        return Component.translatable("block.virtual_mashine." + id);
+    }
+
+    CaseSize(String id, List<String> forms, int maxGpu, int maxCooler, int maxRadiator,
              int bays35, int bays25, int width, int height) {
         this.id = id;
-        this.label = label;
         this.forms = forms;
         this.maxGpu = maxGpu;
         this.maxCooler = maxCooler;

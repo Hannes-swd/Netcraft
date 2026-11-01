@@ -124,7 +124,7 @@ public final class PartCosts {
         PcPart part = PcParts.get(partId);
         if (part == null) return;
         if (!affordable(player, part)) {
-            player.displayClientMessage(Component.literal("You lack the template or materials").withStyle(ChatFormatting.RED), true);
+            player.displayClientMessage(Component.translatable("virtual_mashine.fabricator.lacking").withStyle(ChatFormatting.RED), true);
             return;
         }
         if (!player.getAbilities().instabuild) {

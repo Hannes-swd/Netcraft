@@ -1,5 +1,7 @@
 package dev.hannes.virtual_mashine.pc;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -9,6 +11,7 @@ import java.util.Map;
 /**
  * What is installed in a case (slot key to part id) and the rules for it. Slot keys: mainboard, cpu,
  * cooler, ram0.., m2_0.., gpu, psu, bay35_0.., bay25_0... Board slots exist only with a mainboard.
+ * Every reason is a translatable text, shown in the player's language.
  */
 public final class PcBuild {
     private final CaseSize size;
@@ -28,6 +31,10 @@ public final class PcBuild {
         return id == null ? null : PcParts.get(id);
     }
 
+    private static Component t(String key, Object... args) {
+        return Component.translatable("virtual_mashine.build." + key, args);
+    }
+
     public static @Nullable PartCategory categoryOf(String slot) {
         return switch (slot) {
             case "mainboard" -> PartCategory.MAINBOARD;
@@ -40,12 +47,12 @@ public final class PcBuild {
         };
     }
 
-    public static String slotLabel(String slot) {
-        if (slot.startsWith("m2_")) return "M.2";
-        if (slot.startsWith("bay35_")) return "3.5\" Bay";
-        if (slot.startsWith("bay25_")) return "2.5\" Bay";
+    public static Component slotLabel(String slot) {
+        if (slot.startsWith("m2_")) return Component.literal("M.2");
+        if (slot.startsWith("bay35_")) return t("bay35");
+        if (slot.startsWith("bay25_")) return t("bay25");
         PartCategory category = categoryOf(slot);
-        return category == null ? slot : category.label;
+        return category == null ? Component.literal(slot) : category.displayName();
     }
 
     public List<String> slots() {
@@ -70,57 +77,45 @@ public final class PcBuild {
     }
 
     /** Null if the part can go into this slot, otherwise why not. */
-    public @Nullable String canInstall(String slot, PcPart part) {
+    public @Nullable Component canInstall(String slot, PcPart part) {
         PartCategory category = categoryOf(slot);
-        if (category == null || !slots().contains(slot)) return "This slot is not available";
-        if (parts.containsKey(slot)) return "There is already a part in this slot";
-        if (part.category() != category) return "A " + part.category().label + " does not go here";
+        if (category == null || !slots().contains(slot)) return t("slot_unavailable");
+        if (parts.containsKey(slot)) return t("slot_taken");
+        if (part.category() != category) return t("wrong_slot", part.category().displayName());
         PcPart board = get("mainboard");
         PcPart cpu = get("cpu");
         switch (category) {
             case MAINBOARD -> {
-                if (!size.forms.contains(part.str("form"))) {
-                    return "This case only fits " + String.join(" / ", size.forms) + " mainboards (this one is " + part.str("form") + ")";
-                }
+                if (!size.forms.contains(part.str("form"))) return t("case_form", String.join(" / ", size.forms), part.str("form"));
             }
             case CPU -> {
-                if (!part.str("socket").equals(board.str("socket"))) {
-                    return "A " + part.str("socket") + " CPU does not fit the " + board.str("socket") + " socket";
-                }
-                if (!part.strs("memory").contains(board.str("memory"))) {
-                    return "This CPU does not support " + board.str("memory") + " memory";
-                }
+                if (!part.str("socket").equals(board.str("socket"))) return t("cpu_socket", part.str("socket"), board.str("socket"));
+                if (!part.strs("memory").contains(board.str("memory"))) return t("cpu_memory", board.str("memory"));
             }
             case COOLER -> {
-                if (cpu == null) return "Install a CPU first";
-                if (!part.strs("sockets").contains(cpu.str("socket"))) return "This cooler has no mount for " + cpu.str("socket");
+                if (cpu == null) return t("need_cpu");
+                if (!part.strs("sockets").contains(cpu.str("socket"))) return t("cooler_mount", cpu.str("socket"));
                 if ("aio".equals(part.str("type"))) {
-                    if (part.num("radiator_mm") > size.maxRadiator) {
-                        return "Radiator too big (" + part.num("radiator_mm") + " mm, case fits " + size.maxRadiator + " mm)";
-                    }
+                    if (part.num("radiator_mm") > size.maxRadiator) return t("radiator", part.num("radiator_mm"), size.maxRadiator);
                 } else if (part.num("height_mm") > size.maxCooler) {
-                    return "Cooler too tall (" + part.num("height_mm") + " mm, case fits " + size.maxCooler + " mm)";
+                    return t("cooler_tall", part.num("height_mm"), size.maxCooler);
                 }
             }
             case RAM -> {
-                if (!part.str("memory").equals(board.str("memory"))) {
-                    return part.str("memory") + " RAM does not fit a " + board.str("memory") + " mainboard";
-                }
+                if (!part.str("memory").equals(board.str("memory"))) return t("ram_type", part.str("memory"), board.str("memory"));
             }
             case GPU -> {
-                if (part.num("length_mm") > size.maxGpu) {
-                    return "Card too long (" + part.num("length_mm") + " mm, case fits " + size.maxGpu + " mm)";
-                }
+                if (part.num("length_mm") > size.maxGpu) return t("gpu_long", part.num("length_mm"), size.maxGpu);
             }
             case STORAGE -> {
                 String type = part.str("slot");
                 if (slot.startsWith("m2_")) {
-                    if (!type.equals("m2")) return "Only M.2 SSDs go into an M.2 slot";
+                    if (!type.equals("m2")) return t("m2_only");
                 } else {
-                    if (type.equals("m2")) return "An M.2 SSD goes onto the mainboard";
-                    if (slot.startsWith("bay25_") && type.equals("sata35")) return "A 3.5\" drive does not fit a 2.5\" bay";
-                    if (board == null) return "Install a mainboard first (SATA cable)";
-                    if (sataUsed() >= board.num("sata")) return "No free SATA port on the mainboard";
+                    if (type.equals("m2")) return t("m2_board");
+                    if (slot.startsWith("bay25_") && type.equals("sata35")) return t("bay_small");
+                    if (board == null) return t("need_board_sata");
+                    if (sataUsed() >= board.num("sata")) return t("no_sata");
                 }
             }
             case PSU -> {
@@ -130,12 +125,12 @@ public final class PcBuild {
     }
 
     /** Null if the part can be taken out, otherwise why not. */
-    public @Nullable String canRemove(String slot) {
+    public @Nullable Component canRemove(String slot) {
         if (slot.equals("mainboard") && parts.keySet().stream().anyMatch(k ->
                 k.equals("cpu") || k.startsWith("ram") || k.startsWith("m2_") || k.equals("gpu"))) {
-            return "Take out the parts on the mainboard first";
+            return t("remove_board_parts");
         }
-        if (slot.equals("cpu") && parts.containsKey("cooler")) return "Take off the cooler first";
+        if (slot.equals("cpu") && parts.containsKey("cooler")) return t("remove_cooler");
         return null;
     }
 
@@ -144,16 +139,16 @@ public final class PcBuild {
     }
 
     /** Parts still needed before the PC can start. */
-    public List<String> missing() {
-        List<String> list = new ArrayList<>();
+    public List<Component> missing() {
+        List<Component> list = new ArrayList<>();
         PcPart cpu = get("cpu");
-        if (get("mainboard") == null) list.add("Mainboard");
-        if (cpu == null) list.add("CPU");
-        if (get("cooler") == null && (cpu == null || !cpu.bool("box_cooler"))) list.add("CPU Cooler");
-        if (!any("ram")) list.add("RAM");
-        if (!any("m2_") && !any("bay")) list.add("Storage");
-        if (get("psu") == null) list.add("Power Supply");
-        if (cpu != null && get("gpu") == null && !cpu.bool("igpu")) list.add("Graphics Card (CPU has no integrated graphics)");
+        if (get("mainboard") == null) list.add(PartCategory.MAINBOARD.displayName());
+        if (cpu == null) list.add(PartCategory.CPU.displayName());
+        if (get("cooler") == null && (cpu == null || !cpu.bool("box_cooler"))) list.add(PartCategory.COOLER.displayName());
+        if (!any("ram")) list.add(PartCategory.RAM.displayName());
+        if (!any("m2_") && !any("bay")) list.add(PartCategory.STORAGE.displayName());
+        if (get("psu") == null) list.add(PartCategory.PSU.displayName());
+        if (cpu != null && get("gpu") == null && !cpu.bool("igpu")) list.add(t("missing_gpu"));
         return list;
     }
 
@@ -165,27 +160,33 @@ public final class PcBuild {
     }
 
     /** Everything is there but does not work together. */
-    public List<String> problems() {
-        List<String> list = new ArrayList<>();
+    public List<Component> problems() {
+        List<Component> list = new ArrayList<>();
         PcPart psu = get("psu");
         PcPart gpu = get("gpu");
         PcPart cpu = get("cpu");
         PcPart cooler = get("cooler");
         if (psu != null) {
             int watts = psu.num("watts");
-            if (powerDraw() > watts) list.add("Power supply too weak (" + powerDraw() + " W needed)");
+            if (powerDraw() > watts) list.add(t("psu_weak", powerDraw()));
             if (gpu != null) {
-                if (gpu.num("min_psu") > watts) list.add("The graphics card needs a " + gpu.num("min_psu") + " W power supply");
-                if (gpu.sub("connectors", "12vhpwr") > psu.num("12vhpwr")) list.add("Power supply has no 16-pin cable for the card");
-                if (gpu.sub("connectors", "pcie8") + gpu.sub("connectors", "pcie6") > psu.num("pcie8")) {
-                    list.add("Power supply has too few PCIe cables");
-                }
+                if (gpu.num("min_psu") > watts) list.add(t("gpu_psu", gpu.num("min_psu")));
+                if (gpu.sub("connectors", "12vhpwr") > psu.num("12vhpwr")) list.add(t("no_16pin"));
+                if (gpu.sub("connectors", "pcie8") + gpu.sub("connectors", "pcie6") > psu.num("pcie8")) list.add(t("few_pcie"));
             }
         }
         if (cpu != null && cooler != null && cooler.num("max_tdp") < cpu.num("tdp")) {
-            list.add("Cooler too weak for this CPU (" + cooler.num("max_tdp") + " W < " + cpu.num("tdp") + " W)");
+            list.add(t("cooler_weak", cooler.num("max_tdp"), cpu.num("tdp")));
         }
         return list;
+    }
+
+    /** The first reason why it cannot start ("Missing: ..." or a problem), null if it can. */
+    public @Nullable Component blocker() {
+        List<Component> missing = missing();
+        if (!missing.isEmpty()) return t("missing", ComponentUtils.formatList(missing, Component.literal(", ")));
+        List<Component> problems = problems();
+        return problems.isEmpty() ? null : problems.get(0);
     }
 
     public boolean bootable() {

@@ -3,6 +3,7 @@ package dev.hannes.virtual_mashine.pc;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,58 +55,66 @@ public record PcPart(PartCategory category, String id, String brand, String name
         return brand + " " + name;
     }
 
+    private static Component t(String key, Object... args) {
+        return Component.translatable("virtual_mashine.part." + key, args);
+    }
+
+    private static Component yesNo(boolean value) {
+        return Component.translatable(value ? "gui.yes" : "gui.no");
+    }
+
     /** The lines shown in the tooltip while Shift is held. */
-    public List<String> details() {
-        List<String> l = new ArrayList<>();
+    public List<Component> details() {
+        List<Component> l = new ArrayList<>();
         switch (category) {
             case CPU -> {
-                l.add("Socket: " + str("socket"));
-                l.add("Cores / Threads: " + num("cores") + " / " + num("threads"));
-                l.add(String.format(Locale.ROOT, "Clock: %.1f - %.1f GHz", dbl("base_ghz"), dbl("boost_ghz")));
-                l.add("TDP: " + num("tdp") + " W");
-                l.add("Memory: " + String.join(" / ", strs("memory")));
-                l.add("Integrated graphics: " + (bool("igpu") ? "yes" : "no"));
-                l.add("Stock cooler included: " + (bool("box_cooler") ? "yes" : "no"));
+                l.add(t("socket", str("socket")));
+                l.add(t("cores", num("cores"), num("threads")));
+                l.add(t("clock", String.format(Locale.ROOT, "%.1f", dbl("base_ghz")), String.format(Locale.ROOT, "%.1f", dbl("boost_ghz"))));
+                l.add(t("tdp", num("tdp")));
+                l.add(t("memory", String.join(" / ", strs("memory"))));
+                l.add(t("igpu", yesNo(bool("igpu"))));
+                l.add(t("box_cooler", yesNo(bool("box_cooler"))));
             }
             case MAINBOARD -> {
-                l.add("Socket: " + str("socket") + "  (" + str("chipset") + ")");
-                l.add("Form factor: " + str("form"));
-                l.add("Memory: " + str("memory") + ", " + num("ram_slots") + " slots");
-                l.add("M.2 slots: " + num("m2") + ", SATA ports: " + num("sata"));
+                l.add(t("socket_chipset", str("socket"), str("chipset")));
+                l.add(t("form", str("form")));
+                l.add(t("board_memory", str("memory"), num("ram_slots")));
+                l.add(t("board_slots", num("m2"), num("sata")));
             }
             case RAM -> {
-                l.add("Type: " + str("memory") + "-" + num("speed"));
-                l.add("Size: " + num("size_gb") + " GB (" + num("modules") + " modules)");
+                l.add(t("ram_type", str("memory") + "-" + num("speed")));
+                l.add(t("ram_size", num("size_gb"), num("modules")));
             }
             case GPU -> {
-                l.add("VRAM: " + num("vram_gb") + " GB");
-                l.add("Power: " + num("power") + " W, PSU " + num("min_psu") + " W+");
+                l.add(t("vram", num("vram_gb")));
+                l.add(t("gpu_power", num("power"), num("min_psu")));
                 List<String> plugs = new ArrayList<>();
                 if (sub("connectors", "12vhpwr") > 0) plugs.add(sub("connectors", "12vhpwr") + "x 16-pin");
                 if (sub("connectors", "pcie8") > 0) plugs.add(sub("connectors", "pcie8") + "x 8-pin");
                 if (sub("connectors", "pcie6") > 0) plugs.add(sub("connectors", "pcie6") + "x 6-pin");
-                l.add("Power plugs: " + (plugs.isEmpty() ? "none (slot power)" : String.join(", ", plugs)));
-                l.add("Length: " + num("length_mm") + " mm");
+                l.add(t("plugs", plugs.isEmpty() ? t("plugs_none") : Component.literal(String.join(", ", plugs))));
+                l.add(t("length", num("length_mm")));
             }
             case PSU -> {
-                l.add("Power: " + num("watts") + " W, " + str("rating"));
-                l.add("Cables: " + num("pcie8") + "x PCIe 8-pin, " + num("12vhpwr") + "x 16-pin");
+                l.add(t("psu_power", num("watts"), str("rating")));
+                l.add(t("psu_cables", num("pcie8"), num("12vhpwr")));
             }
             case COOLER -> {
                 boolean aio = "aio".equals(str("type"));
-                l.add(aio ? "Water cooling, " + num("radiator_mm") + " mm radiator" : "Air cooler, " + num("height_mm") + " mm high");
-                l.add("Sockets: " + String.join(", ", strs("sockets")));
-                l.add("Cooling capacity: " + num("max_tdp") + " W");
+                l.add(aio ? t("cooler_aio", num("radiator_mm")) : t("cooler_air", num("height_mm")));
+                l.add(t("sockets", String.join(", ", strs("sockets"))));
+                l.add(t("capacity", num("max_tdp")));
             }
             case STORAGE -> {
                 String slot = str("slot");
-                l.add("Interface: " + switch (slot) {
-                    case "m2" -> "M.2 NVMe";
-                    case "sata25" -> "SATA 2.5\"";
-                    default -> "SATA 3.5\" (HDD)";
-                });
-                l.add("Capacity: " + (num("size_gb") >= 1000 ? num("size_gb") / 1000 + " TB" : num("size_gb") + " GB"));
-                l.add("Read: " + num("read_mbs") + " MB/s");
+                l.add(t("interface", switch (slot) {
+                    case "m2" -> Component.literal("M.2 NVMe");
+                    case "sata25" -> Component.literal("SATA 2.5\"");
+                    default -> t("hdd");
+                }));
+                l.add(t("size", num("size_gb") >= 1000 ? num("size_gb") / 1000 + " TB" : num("size_gb") + " GB"));
+                l.add(t("read", num("read_mbs")));
             }
         }
         return l;
