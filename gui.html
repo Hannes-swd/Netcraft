@@ -62,6 +62,21 @@ details ul{margin:2px 0 4px;padding-left:16px;font-size:12px;color:#c8d0da;font-
 .jar{margin-top:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;background:#16191f}
 .jar.fresh{border-color:#2f63ad;background:#14233a}
 .jar .jn{font-family:Consolas,monospace;color:#d6e4ff}
+.mr{margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;background:#16191f;cursor:pointer}
+.mr:hover{border-color:var(--acc)}
+.mr.ok{border-color:#2c5a3d;background:#132219}.mr.old{border-color:#5e4c1d;background:#221d10}
+.mr .chk{font-size:15px;font-weight:700;margin-right:6px}
+.mtable{border-collapse:collapse}
+.mtable td,.mtable th{border:1px solid var(--line);padding:7px 12px;text-align:left}
+.mtable th{background:#1a1d23;color:var(--mute);font-size:12px}
+.mtable td.c{cursor:pointer}.mtable td.c:hover{background:#1f2633}
+.clist{max-height:55vh;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:8px}
+.crow{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.5px}
+.crow:hover{background:#1f2633}
+.crow.on{background:#132219;outline:1px solid #2c5a3d}
+.crow .n{font-weight:700;min-width:44px;color:#9ecbff}
+.crow .v{font-family:Consolas,monospace;min-width:120px;color:#d6e4ff}
+.crow .s{flex:1}
 </style>
 </head>
 <body>
@@ -74,6 +89,9 @@ details ul{margin:2px 0 4px;padding-left:16px;font-size:12px;color:#c8d0da;font-
   <button onclick="load(true)">Aktualisieren (mit GitHub)</button>
 </header>
 <main>
+  <h2>Was ist auf Modrinth?</h2>
+  <div class="sub">✓ = der neueste Commit ist auf Modrinth. Klick auf ein Feld = auswählen, welcher Commit auf Modrinth hochgeladen ist.</div>
+  <div id="modrinth"></div>
   <h2>Mods &times; Minecraft-Versionen</h2>
   <div id="matrix"></div>
   <h2>Alle Branches auf GitHub</h2>
@@ -120,6 +138,7 @@ function render() {
     h += '</tr>';
   });
   document.getElementById('matrix').innerHTML = h + '</table>';
+  renderModrinth();
   renderBranches();
   renderFeatures();
 }
@@ -159,7 +178,7 @@ function card(mod, v) {
     jar = `<div class="jar"><span class="sub">Noch keine gebaute Jar – „Bauen" drücken.</span></div>`;
   }
   return `<td class="card ${isNew ? 'new' : ''}">${isNew ? '<span class="newbadge">NEU</span>' : ''}<div class="branch">${esc(v.branch)}</div><div class="ver">${esc(v.version)}</div>
-    <div class="sub">${esc(v.path)}</div>${p}${deps}${commit}${changes}${jar}
+    <div class="sub">${esc(v.path)}</div>${p}${deps}${commit}${changes}${jar}${mrBox(key, mod.name + ' (' + v.mc + ')', v.modrinth)}
     <div class="btns">
       <button onclick="act({cmd:'build',key:'${key}'})">Bauen</button>
       <button onclick="act({cmd:'run',key:'${key}'})">Spiel starten</button>
@@ -167,6 +186,65 @@ function card(mod, v) {
       <button class="primary" onclick="release('${key}','${esc(mod.name)} (${esc(v.mc)})')">Release …</button>
       <button onclick="act({cmd:'downloads',key:'${key}'})" ${v.jar ? '' : 'disabled'}>In Downloads kopieren</button>
     </div></td>`;
+}
+
+// ---- Modrinth: which commit is uploaded (marked by hand)
+function mrState(m) {
+  if (!m) return { cls: '', chk: '', text: '–' };
+  if (!m.uploaded) return { cls: '', chk: '○', text: 'noch nichts auf Modrinth' };
+  if (m.current) return { cls: 'ok', chk: '✓', text: `${m.version} · Commit #${m.number} = neuester` };
+  const old = m.behind == null ? 'Commit nicht mehr im Branch' : `${m.behind} Commit(s) älter als #${m.headNumber}`;
+  return { cls: 'old', chk: '!', text: `${m.version} · Commit #${m.number} · ${old}` };
+}
+function mrBox(key, label, m) {
+  const s = mrState(m);
+  return `<div class="mr ${s.cls}" data-key="${esc(key)}" data-label="${esc(label)}" onclick="mrPick(this.dataset.key,this.dataset.label)" title="Klick = auswählen, was auf Modrinth ist">
+    <span class="chk" style="color:${s.cls === 'ok' ? 'var(--ok)' : s.cls === 'old' ? 'var(--warn)' : 'var(--mute)'}">${s.chk}</span><b>Modrinth:</b> ${esc(s.text)}</div>`;
+}
+function renderModrinth() {
+  const o = S.overview;
+  let h = '<table class="mtable"><tr><th>Mod</th>' + o.minecraftVersions.map(m => `<th>Minecraft ${esc(m)}</th>`).join('') + '</tr>';
+  for (const mod of o.mods) {
+    h += `<tr><td><b>${esc(mod.name)}</b></td>`;
+    for (const mc of o.minecraftVersions) {
+      const v = mod.variants.find(x => x.mc === mc);
+      if (!v || !v.exists) { h += '<td class="sub">–</td>'; continue; }
+      const m = v.modrinth || {}, s = mrState(m);
+      const color = s.cls === 'ok' ? 'var(--ok)' : s.cls === 'old' ? 'var(--warn)' : 'var(--mute)';
+      const main = m.uploaded ? `${esc(m.version)} <span class="sub">#${m.number}</span>` : '<span class="sub">nichts hochgeladen</span>';
+      const sub = m.uploaded ? (m.current ? 'neuester Stand' : (m.behind == null ? 'Commit fehlt im Branch' : `${m.behind} Commit(s) dahinter · neu: ${esc(m.headVersion)} #${m.headNumber}`)) : `neuester: ${esc(m.headVersion)} #${m.headNumber}`;
+      h += `<td class="c" data-key="${esc(mod.id + '@' + mc)}" data-label="${esc(mod.name + ' (' + mc + ')')}" onclick="mrPick(this.dataset.key,this.dataset.label)">
+        <span style="color:${color};font-weight:700;font-size:16px;margin-right:6px">${s.chk}</span>${main}<div class="sub">${sub}</div></td>`;
+    }
+    h += '</tr>';
+  }
+  document.getElementById('modrinth').innerHTML = h + '</table>';
+}
+async function mrPick(key, label) {
+  const d = document.getElementById('dlg');
+  d.innerHTML = `<h3>Modrinth: ${esc(label)}</h3><div class="sub">lade Commits …</div>`;
+  d.showModal();
+  let list = [];
+  try { list = await (await fetch('/api/commits?key=' + encodeURIComponent(key))).json(); } catch (e) { }
+  if (!Array.isArray(list)) list = [list];
+  let sel = (list.find(c => c.modrinth) || {}).full || '';
+  const rows = list.map(c => `<div class="crow ${c.modrinth ? 'on' : ''}" data-sha="${esc(c.full)}">
+      <span class="n">#${c.number}</span><span class="v">${esc(c.version)}</span>
+      <span class="s">${esc(c.subject)}${c.tag ? ' ' + pill('ok', 'Release ' + c.tag) : ''}${c.modrinth ? ' ' + pill('ok', 'ist auf Modrinth') : ''}</span>
+      <span class="sub">${esc(c.when)}</span></div>`).join('');
+  d.innerHTML = `<h3>Modrinth: ${esc(label)}</h3>
+    <div class="hint">Welcher Stand ist auf Modrinth hochgeladen? Commit anklicken, dann „Speichern". Der oberste ist der neueste.</div>
+    <div class="clist">${rows || '<div class="sub" style="padding:10px">Keine Commits gefunden.</div>'}</div>
+    <div class="row">
+      <button id="mrclear" style="margin-right:auto">Nichts auf Modrinth</button>
+      <button onclick="document.getElementById('dlg').close()">Abbrechen</button>
+      <button class="primary" id="mrok">Speichern</button></div>`;
+  d.querySelectorAll('.crow').forEach(r => r.onclick = () => {
+    d.querySelectorAll('.crow').forEach(x => x.classList.remove('on'));
+    r.classList.add('on'); sel = r.dataset.sha;
+  });
+  d.querySelector('#mrok').onclick = () => { if (!sel) return; d.close(); act({ cmd: 'modrinth-set', key, commit: sel }); };
+  d.querySelector('#mrclear').onclick = () => { d.close(); act({ cmd: 'modrinth-clear', key }); };
 }
 
 function commitPush(key, label, dirty) {

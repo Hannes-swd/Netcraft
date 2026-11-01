@@ -44,6 +44,9 @@ Wenn Claude modtool aufruft, **immer `-NoPrompt`** (keine Rückfragen, kein Expl
 | Feature eintragen / „fehlt" anklicken | `modtool feature add <mod> "Name" -Mc 1.21.1[,26.1]` |
 | Feature austragen | `modtool feature remove <mod> "Name" -Mc <mc>` |
 | Feature-Tabelle | `modtool feature list` / `modtool feature missing` |
+| „Was ist auf Modrinth?" (✓ = neuester Commit hochgeladen) | `modtool modrinth` |
+| Modrinth-Feld anklicken → Commit wählen | `modtool modrinth commits mod@mc` / `modtool modrinth set mod@mc [-Commit sha \| -Version x]` |
+| „Nichts auf Modrinth" | `modtool modrinth clear mod@mc` |
 
 Mods per ID, Name oder Teil davon (`netcraft`, `pc`); eine Variante mit `mod@1.21.1` oder `-Mc 1.21.1`.
 Neue Funktionen im Tool immer in **beiden** einbauen (Konsole und `gui.html`) und hier eintragen.
@@ -98,5 +101,7 @@ Aktuell und vollständig steht es immer in `modtool\mods.json`.
   beenden (laufende VMs werden sonst nicht gesichert).
 - Commit/Push/Release sind öffentlich: nur, wenn der Nutzer es will; vorher `release -DryRun` zeigen und
   die Changelog-Texte (`-Notes`) mit ihm abstimmen.
+- Was auf Modrinth liegt, merkt sich `modtool\modrinth.json` (von Hand markiert, pro Variante ein Commit).
+  Lädt der Nutzer etwas hoch, mit `modtool modrinth set mod@mc` eintragen.
 - Geplant, aber noch nicht gebaut: direkter Upload zu Modrinth (braucht einen Modrinth-Token des Nutzers,
   nur lokal gespeichert, und ein Modrinth-Projekt für den PC Builder).

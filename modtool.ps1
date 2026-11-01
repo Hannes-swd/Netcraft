@@ -34,6 +34,11 @@
                                             Feature eintragen (Standard: aktuelle Version der Variante)
     modtool feature remove mod "Name" [-Mc 26.1]
     modtool feature missing [mod]           was fehlt in welcher Minecraft-Version (Port-Liste)
+    modtool modrinth [list]                 was liegt auf Modrinth (je Variante) und ist es das Neueste?
+    modtool modrinth commits mod@mc [-Json] letzte Commits mit Nummer und Version (zum Auswählen)
+    modtool modrinth set mod@mc [-Commit sha | -Version x]
+                                            merken: dieser Stand ist auf Modrinth (Standard: neuester Commit)
+    modtool modrinth clear mod@mc           Markierung löschen (nichts auf Modrinth)
 
   Mods kann man per id, Name oder Teil davon angeben ("netcraft", "pc"); "mod@1.21.1" wählt eine Variante.
 #>
@@ -50,6 +55,8 @@ param(
     [string]$From = '',
     # feature: the mod version a feature arrived in (default: the variant's current version).
     [string]$Version = '',
+    # modrinth set: the commit that is on Modrinth (default: the newest commit of the variant).
+    [string]$Commit = '',
     [switch]$All,
     # commit: push right after committing.
     [switch]$Push,
@@ -884,6 +891,149 @@ function Cmd-Feature {
     }
 }
 
+# ------------------------------------------------------------------ Modrinth: which state was uploaded
+
+# Uploads to Modrinth are done by hand; modrinth.json remembers per variant which commit is there.
+$ModrinthPath = Join-Path $ToolDir 'modrinth.json'
+
+function Load-Modrinth {
+    if (-not (Test-Path $ModrinthPath)) { return [ordered]@{} }
+    $h = ConvertTo-Hash (Get-Content $ModrinthPath -Raw -Encoding UTF8 | ConvertFrom-Json)
+    if ($h -isnot [System.Collections.IDictionary]) { return [ordered]@{} }
+    return $h
+}
+
+function Save-Modrinth($h) { [IO.File]::WriteAllText($ModrinthPath, ($h | ConvertTo-Json -Depth 5), $Utf8) }
+
+function Get-VersionAt($t, [string]$sha) {
+    foreach ($line in (Run-Git $t show "${sha}:./gradle.properties")) {
+        if ($line -match '^\s*mod_version\s*=\s*(.*)$') { return $Matches[1].Trim() }
+    }
+    return '?'
+}
+
+function Get-CommitNumber($t, [string]$sha) { return [int]((Run-Git $t rev-list --count $sha) -join '') }
+
+# Modrinth state of one variant: what is there, its commit number, and how far HEAD is ahead.
+function Get-ModrinthInfo($t, $store) {
+    $e = if ($store.Contains($t.Key)) { $store[$t.Key] } else { $null }
+    $head = (Run-Git $t rev-parse HEAD) -join ''
+    $headNumber = Get-CommitNumber $t 'HEAD'
+    if (-not $e) {
+        return [ordered]@{ uploaded = $false; current = $false; headNumber = $headNumber; headVersion = (Get-Version $t) }
+    }
+    $behind = $null
+    & git.exe -C $t.Path merge-base --is-ancestor $e.sha HEAD *> $null
+    if ($LASTEXITCODE -eq 0) { $behind = [int]((Run-Git $t rev-list --count "$($e.sha)..HEAD") -join '') }
+    return [ordered]@{
+        uploaded    = $true
+        version     = $e.version
+        sha         = $e.sha.Substring(0, 7)
+        number      = $e.number
+        subject     = $e.subject
+        markedAt    = $e.markedAt
+        behind      = $behind
+        current     = ($e.sha -eq $head)
+        headNumber  = $headNumber
+        headVersion = (Get-Version $t)
+    }
+}
+
+# The last commits of a variant with number, version and Modrinth marker.
+function Get-CommitList($t, [int]$count = 40) {
+    $store = Load-Modrinth
+    $marked = if ($store.Contains($t.Key)) { $store[$t.Key].sha } else { '' }
+    $tags = @{}
+    foreach ($l in (Run-Git $t for-each-ref --format='%(objectname) %(*objectname) %(refname:short)' "refs/tags/$(Get-Tag $t '*')")) {
+        $p = "$l" -split ' '
+        $target = if ($p[1]) { $p[1] } else { $p[0] }
+        $tags[$target] = $p[-1]
+    }
+    $headNumber = Get-CommitNumber $t 'HEAD'
+    $i = 0
+    $list = foreach ($l in (Run-Git $t log -n $count '--pretty=format:%H|%cr|%s')) {
+        $p = "$l" -split '\|', 3
+        if ($p.Count -lt 3) { continue }
+        [ordered]@{
+            sha      = $p[0].Substring(0, 7)
+            full     = $p[0]
+            number   = $headNumber - $i
+            version  = Get-VersionAt $t $p[0]
+            when     = $p[1]
+            subject  = $p[2]
+            tag      = if ($tags.Contains($p[0])) { $tags[$p[0]] } else { '' }
+            modrinth = ($p[0] -eq $marked)
+        }
+        $i++
+    }
+    return @($list)
+}
+
+function Cmd-Modrinth {
+    $action = if ($Names.Count -and $Names[0].ToLower() -in 'list', 'set', 'clear', 'commits') { $Names[0].ToLower() } else { 'list' }
+    $rest = @($Names | Where-Object { $_ } | Select-Object -Skip $(if ($Names.Count -and $Names[0].ToLower() -eq $action) { 1 } else { 0 }))
+    $store = Load-Modrinth
+    switch ($action) {
+        'set' {
+            $chosen = @(Select-Targets $rest)
+            if ($chosen.Count -ne 1 -or -not $chosen[0]) { Fail 'Aufruf: modtool modrinth set mod@mc [-Commit sha | -Version x]' }
+            $t = $chosen[0]
+            $ref = if ($Commit) { $Commit } elseif ($Version) { Get-Tag $t $Version } else { 'HEAD' }
+            $sha = (Run-Git $t rev-parse --verify "$ref^{commit}") -join ''
+            if ($script:GitCode -ne 0) { Fail "Commit/Version '$ref' gibt es in $($t.Label) nicht" }
+            $store[$t.Key] = [ordered]@{
+                sha      = $sha
+                version  = Get-VersionAt $t $sha
+                number   = Get-CommitNumber $t $sha
+                subject  = (Run-Git $t log -1 '--pretty=format:%s' $sha) -join ''
+                markedAt = (Get-Date -Format 'yyyy-MM-dd HH:mm')
+            }
+            Save-Modrinth $store
+            $e = $store[$t.Key]
+            Ok "$($t.Label): auf Modrinth ist jetzt $($e.version) (Commit #$($e.number) $($sha.Substring(0, 7)) $($e.subject))"
+        }
+        'clear' {
+            $chosen = @(Select-Targets $rest)
+            if ($chosen.Count -ne 1 -or -not $chosen[0]) { Fail 'Aufruf: modtool modrinth clear mod@mc' }
+            $store.Remove($chosen[0].Key)
+            Save-Modrinth $store
+            Ok "$($chosen[0].Label): keine Modrinth-Markierung mehr"
+        }
+        'commits' {
+            $chosen = @(Select-Targets $rest)
+            if ($chosen.Count -ne 1 -or -not $chosen[0]) { Fail 'Aufruf: modtool modrinth commits mod@mc' }
+            $list = Get-CommitList $chosen[0]
+            if ($Json) { @($list) | ConvertTo-Json -Depth 4; return }
+            Step "$($chosen[0].Label): letzte Commits"
+            foreach ($c in $list) {
+                $mark = if ($c.modrinth) { '[Modrinth] ' } else { '' }
+                $tag = if ($c.tag) { " ($($c.tag))" } else { '' }
+                Write-Host ("    #{0,-4} {1} {2,-16} {3}{4}{5}  - {6}" -f $c.number, $c.sha, $c.version, $mark, $c.subject, $tag, $c.when)
+            }
+        }
+        default {
+            $chosen = Select-Targets $rest
+            if ($null -eq $chosen) { $chosen = @(Get-Targets | Where-Object { Test-Path $_.Path }) }
+            $rows = foreach ($t in $chosen) {
+                $m = Get-ModrinthInfo $t $store
+                $stand = if (-not $m.uploaded) { 'noch nichts hochgeladen' }
+                         elseif ($m.current) { 'OK - neuester Stand' }
+                         elseif ($null -eq $m.behind) { 'Commit nicht mehr im Branch' }
+                         else { "$($m.behind) Commit(s) älter" }
+                [pscustomobject]@{
+                    Variante   = $t.Label
+                    Modrinth   = if ($m.uploaded) { "$($m.version) (#$($m.number) $($m.sha))" } else { '-' }
+                    'Neuester' = "$($m.headVersion) (#$($m.headNumber))"
+                    Stand      = $stand
+                }
+            }
+            if ($Json) { @($rows) | ConvertTo-Json -Depth 4; return }
+            Step 'Modrinth-Stand'
+            $rows | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+        }
+    }
+}
+
 # ------------------------------------------------------------------ overview and dashboard
 
 # Latest GitHub release per variant (tags v<version>; the +mc suffix tells the variant).
@@ -947,6 +1097,7 @@ function Get-JarInfo($t) {
 function Get-Overview {
     $state = Load-State
     $features = Load-Features
+    $modrinth = Load-Modrinth
     $mods = foreach ($mod in $Config.mods) {
         $releases = Get-GithubReleases $mod
         $variants = foreach ($t in Get-Targets | Where-Object { $_.Mod.id -eq $mod.id }) {
@@ -973,6 +1124,7 @@ function Get-Overview {
                 dependsOn          = @(Get-Deps $t | ForEach-Object { "$($_.Target.Mod.name) $(Get-Version $_.Target)" })
                 changes            = if ($exists) { Get-Changes $t } else { $null }
                 jar                = if ($exists) { Get-JarInfo $t } else { $null }
+                modrinth           = if ($exists) { Get-ModrinthInfo $t $modrinth } else { $null }
             }
         }
         [ordered]@{
@@ -1006,6 +1158,8 @@ function Cmd-Overview {
                 if ($v.github -ne 'aktuell') { $flags += $v.github }
                 if ($v.dirtyFiles -gt 0) { $flags += "$($v.dirtyFiles) nicht committet" }
                 if ($v.jar -and -not $v.jar.released) { $flags += "neue Release-Datei $($v.jar.name)" }
+                $m = $v.modrinth
+                $flags += if (-not $m.uploaded) { 'Modrinth: nichts' } elseif ($m.current) { "Modrinth: $($m.version) = neuester" } else { "Modrinth: $($m.version), $($m.behind) Commit(s) älter" }
                 "$($v.version) (Release: $($v.latestRelease))" + $(if ($flags) { " [" + ($flags -join ', ') + "]" } else { '' })
             }
         }
@@ -1195,6 +1349,8 @@ function Invoke-GuiAction($a) {
         'new' { $argv = @('new', $a.name, $a.id, '-Mc', $a.mc) }
         'feature-add' { $argv = @('feature', 'add', $a.mod, $a.name, '-Mc', $a.mc) }
         'feature-remove' { $argv = @('feature', 'remove', $a.mod, $a.name, '-Mc', $a.mc) }
+        'modrinth-set' { $argv = @('modrinth', 'set', $a.key); if ($a.commit) { $argv += @('-Commit', $a.commit) } }
+        'modrinth-clear' { $argv = @('modrinth', 'clear', $a.key) }
         default { return "Unbekannte Aktion '$($a.cmd)'`n" }
     }
     return Invoke-Self $argv
@@ -1238,6 +1394,12 @@ function Handle-Http($client) {
         $script:Offline = -not ($path -match 'online=1')
         $state = [ordered]@{ repo = $Config.repo; overview = (Get-Overview); branches = @(Get-BranchList) }
         Send-Http $stream 200 'application/json' ($state | ConvertTo-Json -Depth 10)
+    } elseif ($path -like '/api/commits?key=*') {
+        $script:Config = Load-Config
+        $key = [Uri]::UnescapeDataString($path.Substring('/api/commits?key='.Length))
+        $t = Get-Targets | Where-Object { $_.Key -eq $key } | Select-Object -First 1
+        $list = if ($t -and (Test-Path $t.Path)) { @(Get-CommitList $t) } else { @() }
+        Send-Http $stream 200 'application/json' (ConvertTo-Json -InputObject @($list) -Depth 4)
     } elseif ($path -eq '/api/run' -and $method -eq 'POST') {
         $a = [Uri]::UnescapeDataString($body) | ConvertFrom-Json
         Info "Aktion: $($a.cmd) $($a.key)$($a.mod)"
@@ -1276,6 +1438,7 @@ switch ($Command.ToLower()) {
     'dashboard' { Cmd-Dashboard }
     'feature' { Cmd-Feature }
     'features' { Cmd-Feature }
+    'modrinth' { Cmd-Modrinth }
     'status' { Cmd-Status }
     'build' { Cmd-Build }
     'run' { Cmd-Run }
