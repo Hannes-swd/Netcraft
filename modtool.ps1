@@ -18,6 +18,8 @@
   Schalter für Skripte/Claude: -NoPrompt (fragt nie nach, öffnet keinen Explorer), -DryRun (nur anzeigen).
 
   Überblick:
+    modtool gui [-Port 8765]                Oberfläche im Browser: alle Branches, Knöpfe für Bauen,
+                                            Starten, Release, neue Minecraft-Version, neues Addon, Features
     modtool overview [-Json] [-Offline]     Matrix Mods x Minecraft-Versionen (+ GitHub-Releases, Features)
     modtool dashboard [-Offline]            dasselbe als Webseite (dashboard.html) im Browser
     modtool feature [list] [mod]            welches Feature ist in welcher Minecraft-Version drin
@@ -33,6 +35,10 @@ param(
     [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Names = @(),
     [string]$Mc = '',
     [string]$Notes = '',
+    # release: read the notes from this file (multi-line text from the GUI).
+    [string]$NotesFile = '',
+    # gui: local port of the web interface.
+    [int]$Port = 8765,
     [ValidateSet('patch', 'minor', 'major')][string]$Bump = 'patch',
     [string]$From = '',
     # feature: the mod version a feature arrived in (default: the variant's current version).
@@ -48,6 +54,8 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'
+# Started by the GUI: its output is read as UTF-8 (umlauts).
+if ($env:MODTOOL_CHILD) { try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { } }
 $ToolDir = $PSScriptRoot
 $Root = Split-Path $ToolDir -Parent
 $ConfigPath = Join-Path $ToolDir 'mods.json'
@@ -56,6 +64,7 @@ $Utf8 = New-Object System.Text.UTF8Encoding $false
 
 function Load-Config { Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json }
 $Config = Load-Config
+if ($NotesFile -and (Test-Path $NotesFile)) { $Notes = [IO.File]::ReadAllText($NotesFile, [Text.Encoding]::UTF8).Trim() }
 $BuildRoot = [Environment]::ExpandEnvironmentVariables($Config.buildRoot)
 $OutRoot = [Environment]::ExpandEnvironmentVariables($Config.outputDir)
 
@@ -937,7 +946,158 @@ a{color:#9ecbff}
     }
 }
 
+# ------------------------------------------------------------------ GUI: local web interface (modtool gui)
+
+# Every branch on GitHub, with the mod variant it belongs to (or none).
+function Get-BranchList {
+    $base = Get-Targets | Where-Object { Test-Path $_.Path } | Select-Object -First 1
+    if (-not $Offline) {
+        & git.exe -C $base.Path fetch -q --prune origin *> $null
+        if (-not $script:DefaultBranch) {
+            $script:DefaultBranch = (& gh.exe repo view $Config.repo --json defaultBranchRef -q .defaultBranchRef.name 2>$null) -join ''
+        }
+    }
+    $refs = & git.exe -C $base.Path for-each-ref --format='%(refname:short)|%(objectname:short)|%(contents:subject)|%(committerdate:relative)' refs/remotes/origin
+    $list = foreach ($r in $refs) {
+        $p = "$r" -split '\|', 4
+        $name = $p[0] -replace '^origin/', ''
+        if ($name -eq 'HEAD' -or $name -eq 'origin') { continue }
+        $t = Get-Targets | Where-Object { $_.Branch -eq $name } | Select-Object -First 1
+        [ordered]@{
+            name      = $name
+            sha       = $p[1]
+            subject   = $p[2]
+            when      = $p[3]
+            mod       = if ($t) { $t.Mod.name } elseif ($name -eq 'tools') { 'modtool (Werkzeug)' } else { $null }
+            mc        = if ($t) { $t.Mc } else { $null }
+            folder    = if ($t) { $t.Path } elseif ($name -eq 'tools') { $ToolDir } else { $null }
+            state     = if ($t -and (Test-Path $t.Path)) { Get-PushState $t } else { '' }
+            isDefault = ($name -eq $script:DefaultBranch)
+        }
+    }
+    return @($list)
+}
+
+# Runs modtool itself in a child process and returns everything it printed.
+function Invoke-Self([string[]]$argv) {
+    $quoted = ($argv | Where-Object { $_ -ne $null -and $_ -ne '' } | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" $quoted -NoPrompt"
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $psi.StandardErrorEncoding = [Text.Encoding]::UTF8
+    $psi.EnvironmentVariables['MODTOOL_CHILD'] = '1'
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $so = $p.StandardOutput.ReadToEndAsync()
+    $se = $p.StandardError.ReadToEndAsync()
+    $p.WaitForExit()
+    $text = $so.Result + $se.Result
+    if ($p.ExitCode -ne 0) { $text += "`n(Fehlgeschlagen, Code $($p.ExitCode))`n" }
+    return $text
+}
+
+function Invoke-GuiAction($a) {
+    switch ($a.cmd) {
+        'build' { $argv = @('build'); if ($a.key) { $argv += $a.key } }
+        'push' { $argv = @('push'); if ($a.key) { $argv += $a.key } }
+        'run' {
+            Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', "`"$PSCommandPath`"", 'run', $a.key)
+            return "Minecraft wird in einem eigenen Fenster gebaut und gestartet.`n"
+        }
+        'release' {
+            $argv = @('release', $a.key, '-Bump', $a.bump)
+            if ($a.notes) {
+                $tmp = Join-Path $env:TEMP "modtool-notes-$([guid]::NewGuid().ToString('N')).txt"
+                [IO.File]::WriteAllText($tmp, $a.notes, $Utf8)
+                $argv += @('-NotesFile', $tmp)
+            }
+            if ($a.dry) { $argv += '-DryRun' }
+        }
+        'port' { $argv = @('port', $a.mod, $a.mc); if ($a.from) { $argv += @('-From', $a.from) } }
+        'new' { $argv = @('new', $a.name, $a.id, '-Mc', $a.mc) }
+        'feature-add' { $argv = @('feature', 'add', $a.mod, $a.name, '-Mc', $a.mc) }
+        'feature-remove' { $argv = @('feature', 'remove', $a.mod, $a.name, '-Mc', $a.mc) }
+        default { return "Unbekannte Aktion '$($a.cmd)'`n" }
+    }
+    return Invoke-Self $argv
+}
+
+function Send-Http($stream, [int]$code, [string]$type, [string]$body) {
+    $bytes = $Utf8.GetBytes($body)
+    $head = "HTTP/1.1 $code OK`r`nContent-Type: $type; charset=utf-8`r`nContent-Length: $($bytes.Length)`r`nCache-Control: no-store`r`nConnection: close`r`n`r`n"
+    $hb = [Text.Encoding]::ASCII.GetBytes($head)
+    $stream.Write($hb, 0, $hb.Length)
+    $stream.Write($bytes, 0, $bytes.Length)
+    $stream.Flush()
+}
+
+function Handle-Http($client) {
+    $client.ReceiveTimeout = 10000
+    $stream = $client.GetStream()
+    $reader = New-Object System.IO.StreamReader($stream, [Text.Encoding]::ASCII)
+    $line = $reader.ReadLine()
+    if (-not $line) { return }
+    $parts = $line.Split(' ')
+    $method = $parts[0]
+    $path = $parts[1]
+    $len = 0
+    while ($true) {
+        $h = $reader.ReadLine()
+        if ($null -eq $h -or $h -eq '') { break }
+        if ($h -match '^Content-Length:\s*(\d+)') { $len = [int]$Matches[1] }
+    }
+    $body = ''
+    if ($len -gt 0) {
+        $buf = New-Object char[] $len
+        $read = 0
+        while ($read -lt $len) { $n = $reader.Read($buf, $read, $len - $read); if ($n -le 0) { break }; $read += $n }
+        $body = -join $buf[0..($read - 1)]
+    }
+    if ($path -eq '/' -or $path.StartsWith('/?') -or $path -eq '/index.html') {
+        Send-Http $stream 200 'text/html' ([IO.File]::ReadAllText((Join-Path $ToolDir 'gui.html'), [Text.Encoding]::UTF8))
+    } elseif ($path -like '/api/state*') {
+        $script:Config = Load-Config
+        $script:Offline = -not ($path -match 'online=1')
+        $state = [ordered]@{ repo = $Config.repo; overview = (Get-Overview); branches = @(Get-BranchList) }
+        Send-Http $stream 200 'application/json' ($state | ConvertTo-Json -Depth 10)
+    } elseif ($path -eq '/api/run' -and $method -eq 'POST') {
+        $a = [Uri]::UnescapeDataString($body) | ConvertFrom-Json
+        Info "Aktion: $($a.cmd) $($a.key)$($a.mod)"
+        Send-Http $stream 200 'text/plain' (Invoke-GuiAction $a)
+    } else {
+        Send-Http $stream 404 'text/plain' 'nicht gefunden'
+    }
+}
+
+function Cmd-Gui {
+    $listener = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback, $Port)
+    try { $listener.Start() } catch { Fail "Port $Port ist belegt (läuft modtool gui schon?). Anderer Port: -Port 8770" }
+    $url = "http://127.0.0.1:$Port/"
+    Step "modtool-Oberfläche läuft auf $url"
+    Info 'Dieses Fenster offen lassen. Beenden: Fenster schließen oder Strg+C.'
+    if (-not $NoPrompt) {
+        $opened = $false
+        foreach ($browser in @('chrome', 'msedge', 'firefox')) {
+            try { Start-Process $browser $url -ErrorAction Stop; $opened = $true; break } catch { }
+        }
+        if (-not $opened) { Start-Process $url }
+    }
+    try {
+        while ($true) {
+            $client = $listener.AcceptTcpClient()
+            try { Handle-Http $client } catch { Warn "Fehler bei einer Anfrage: $_" } finally { $client.Close() }
+        }
+    } finally {
+        $listener.Stop()
+    }
+}
+
 switch ($Command.ToLower()) {
+    'gui' { Cmd-Gui }
     'overview' { Cmd-Overview }
     'dashboard' { Cmd-Dashboard }
     'feature' { Cmd-Feature }

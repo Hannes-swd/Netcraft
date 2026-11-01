@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Netcraft modtool</title>
+<style>
+:root{--bg:#14161b;--panel:#1c1f26;--line:#2c313b;--text:#e6e8eb;--mute:#8b93a0;--acc:#6aa9ff;--ok:#5fd48a;--warn:#f2c255;--bad:#ff7b7b}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+header{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;padding:12px 24px;background:#101216;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0 12px 0 0}
+#stamp{color:var(--mute);font-size:12px;margin-right:auto}
+main{padding:8px 24px 260px;max-width:1500px}
+h2{font-size:15px;color:#9ecbff;margin:26px 0 10px;font-weight:600}
+button{background:#262b35;color:var(--text);border:1px solid #384050;border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit;font-size:13px}
+button:hover{background:#303746;border-color:var(--acc)}
+button.primary{background:#1f4a86;border-color:#2f63ad}
+button.primary:hover{background:#285aa0}
+button:disabled{opacity:.45;cursor:default}
+table{border-collapse:separate;border-spacing:8px}
+.matrix th{color:var(--mute);font-weight:600;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.modcell{vertical-align:top;padding:12px;min-width:190px}
+.modcell b{font-size:15px}
+.sub{color:var(--mute);font-size:12px}
+.card{vertical-align:top;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:300px}
+.card.none{background:transparent;border-style:dashed;color:var(--mute);text-align:center;vertical-align:middle}
+.branch{font-family:Consolas,monospace;font-size:13px;color:#c9d4e3}
+.branch::before{content:"\2387  ";color:var(--acc)}
+.ver{font-size:18px;font-weight:600;margin:6px 0 2px}
+.pill{display:inline-block;border-radius:20px;padding:1px 8px;font-size:11.5px;margin:4px 4px 0 0;border:1px solid}
+.pill.ok{color:var(--ok);border-color:#2c5a3d}.pill.warn{color:var(--warn);border-color:#5e4c1d}.pill.bad{color:var(--bad);border-color:#5e2a2a}.pill.mute{color:var(--mute);border-color:#3a404b}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.commit{margin-top:8px;font-size:12px;color:#b9c1cc;border-left:2px solid #3a404b;padding-left:8px}
+.blist{border-collapse:collapse;width:100%}
+.blist td,.blist th{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.blist th{color:var(--mute);font-size:12px;font-weight:600}
+.lane{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.ftable{border-collapse:collapse}
+.ftable td,.ftable th{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.ftable th{background:#1a1d23;color:var(--mute);font-size:12px}
+.has{color:var(--ok);cursor:pointer}.has:hover{text-decoration:line-through;color:var(--bad)}
+.miss{color:var(--bad);font-weight:600;cursor:pointer}.miss:hover{background:#1f3a2a;color:var(--ok)}
+.fform{display:flex;gap:8px;align-items:center;margin:8px 0 4px;flex-wrap:wrap}
+input,select,textarea{background:#0f1115;color:var(--text);border:1px solid #384050;border-radius:6px;padding:6px 8px;font:inherit}
+aside{position:fixed;left:0;right:0;bottom:0;height:230px;background:#0c0d10;border-top:1px solid var(--line);display:flex;flex-direction:column}
+.logh{padding:6px 24px;color:var(--mute);font-size:12px;display:flex;gap:12px;align-items:center}
+#busy{color:var(--warn)}
+pre{margin:0;padding:0 24px 12px;overflow:auto;flex:1;font:12.5px Consolas,monospace;color:#c8d0da;white-space:pre-wrap}
+dialog{background:var(--panel);color:var(--text);border:1px solid #3a404b;border-radius:12px;padding:20px;min-width:420px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h3{margin:0 0 14px;font-size:16px}
+dialog label{display:block;margin:10px 0 4px;color:var(--mute);font-size:12px}
+dialog input,dialog select,dialog textarea{width:100%}
+dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.hint{color:var(--mute);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Netcraft modtool</h1>
+  <span id="stamp">lädt …</span>
+  <button onclick="newAddon()">+ Neues Addon</button>
+  <button onclick="act({cmd:'build'})">Alles Geänderte bauen</button>
+  <button onclick="act({cmd:'push'})">Alles pushen</button>
+  <button onclick="load(true)">Aktualisieren (mit GitHub)</button>
+</header>
+<main>
+  <h2>Mods &times; Minecraft-Versionen</h2>
+  <div id="matrix"></div>
+  <h2>Alle Branches auf GitHub</h2>
+  <div id="branches"></div>
+  <h2>Features je Minecraft-Version</h2>
+  <div class="sub">Klick auf <span class="miss">fehlt</span> = als vorhanden eintragen (mit der aktuellen Version), Klick auf eine Version = austragen.</div>
+  <div id="features"></div>
+</main>
+<aside>
+  <div class="logh">Ausgabe <span id="busy"></span><button onclick="out.textContent=''">leeren</button></div>
+  <pre id="out"></pre>
+</aside>
+<dialog id="dlg"></dialog>
+<script>
+let S = null;
+const out = document.getElementById('out');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const lanes = ['#6aa9ff','#5fd48a','#f2c255','#c38cff','#ff8f6b','#4fd1c5'];
+
+async function load(online) {
+  document.getElementById('busy').textContent = 'lade Stand …';
+  try {
+    const r = await fetch('/api/state' + (online ? '?online=1' : ''));
+    S = await r.json();
+    render();
+  } catch (e) { out.textContent += '\nFehler beim Laden: ' + e + '\n'; }
+  document.getElementById('busy').textContent = '';
+}
+
+function pill(cls, text) { return `<span class="pill ${cls}">${esc(text)}</span>`; }
+
+function render() {
+  const o = S.overview;
+  document.getElementById('stamp').textContent = 'Stand ' + o.generated + ' · Repo ' + S.repo;
+  let h = '<table class="matrix"><tr><th></th>' + o.minecraftVersions.map(m => `<th>Minecraft ${esc(m)}</th>`).join('') + '</tr>';
+  o.mods.forEach((mod, i) => {
+    h += `<tr><td class="modcell"><span class="lane" style="background:${lanes[i % lanes.length]}"></span><b>${esc(mod.name)}</b>
+      <div class="sub">${esc(mod.id)}</div>
+      <div class="btns"><button onclick="port('${mod.id}')">+ Minecraft-Version</button></div></td>`;
+    for (const mc of o.minecraftVersions) {
+      const v = mod.variants.find(x => x.mc === mc);
+      h += v ? card(mod, v) : `<td class="card none">nicht für ${esc(mc)}<div class="btns" style="justify-content:center"><button onclick="port('${mod.id}','${esc(mc)}')">anlegen</button></div></td>`;
+    }
+    h += '</tr>';
+  });
+  document.getElementById('matrix').innerHTML = h + '</table>';
+  renderBranches();
+  renderFeatures();
+}
+
+function card(mod, v) {
+  const key = mod.id + '@' + v.mc;
+  if (!v.exists) return `<td class="card">${pill('bad', 'Ordner fehlt: ' + v.path)}</td>`;
+  let p = '';
+  p += v.changedSinceRelease ? pill('warn', 'Änderungen seit Release') : pill('ok', 'wie Release');
+  p += v.built ? pill('ok', 'gebaut') : pill('warn', 'nicht gebaut');
+  p += pill(v.github === 'aktuell' ? 'ok' : (v.github || '').includes('Commit') ? 'warn' : 'bad', 'GitHub: ' + v.github);
+  if (v.dirtyFiles > 0) p += pill('warn', v.dirtyFiles + ' Datei(en) nicht committet');
+  p += pill('mute', 'Release: ' + v.latestRelease);
+  const b = (S.branches || []).find(x => x.name === v.branch);
+  const commit = b ? `<div class="commit">${esc(b.sha)} · ${esc(b.subject)}<br><span class="sub">${esc(b.when)}</span></div>` : '';
+  const deps = v.dependsOn.length ? `<div class="sub" style="margin-top:6px">braucht ${esc(v.dependsOn.join(', '))}</div>` : '';
+  return `<td class="card"><div class="branch">${esc(v.branch)}</div><div class="ver">${esc(v.version)}</div>
+    <div class="sub">${esc(v.path)}</div>${p}${deps}${commit}
+    <div class="btns">
+      <button onclick="act({cmd:'build',key:'${key}'})">Bauen</button>
+      <button onclick="act({cmd:'run',key:'${key}'})">Spiel starten</button>
+      <button class="primary" onclick="release('${key}','${esc(mod.name)} (${esc(v.mc)})')">Release …</button>
+      <button onclick="act({cmd:'push',key:'${key}'})">Push</button>
+    </div></td>`;
+}
+
+function renderBranches() {
+  const list = S.branches || [];
+  if (!list.length) { document.getElementById('branches').innerHTML = '<div class="sub">Keine Branch-Daten (Aktualisieren mit GitHub drücken).</div>'; return; }
+  const modIndex = {}; S.overview.mods.forEach((m, i) => modIndex[m.name] = i);
+  let h = '<table class="blist"><tr><th>Branch</th><th>Gehört zu</th><th>Letzter Commit</th><th>Stand</th><th></th></tr>';
+  for (const b of list) {
+    const color = b.mod && modIndex[b.mod] !== undefined ? lanes[modIndex[b.mod] % lanes.length] : '#555';
+    const owner = b.mod ? `${esc(b.mod)}${b.mc ? ' · Minecraft ' + esc(b.mc) : ''}` : '<span class="pill bad">keiner Mod zugeordnet</span>';
+    const stateCls = b.state === 'aktuell' ? 'ok' : b.state ? 'warn' : 'mute';
+    h += `<tr><td><span class="lane" style="background:${color}"></span><span class="branch">${esc(b.name)}</span>${b.isDefault ? ' ' + pill('mute', 'Standard') : ''}</td>
+      <td>${owner}${b.folder ? `<div class="sub">${esc(b.folder)}</div>` : ''}</td>
+      <td>${esc(b.sha)} · ${esc(b.subject)}<div class="sub">${esc(b.when)}</div></td>
+      <td>${b.state ? pill(stateCls, b.state) : ''}</td>
+      <td><a href="https://github.com/${esc(S.repo)}/tree/${encodeURIComponent(b.name).replace(/%2F/g,'/')}" target="_blank" style="color:#9ecbff">GitHub</a></td></tr>`;
+  }
+  document.getElementById('branches').innerHTML = h + '</table>';
+}
+
+function renderFeatures() {
+  let h = '';
+  for (const mod of S.overview.mods) {
+    const mcs = mod.variants.map(v => v.mc);
+    h += `<h3 style="font-size:14px;margin:18px 0 6px">${esc(mod.name)}</h3>`;
+    h += `<div class="fform"><input id="fn_${mod.id}" placeholder="Neues Feature, z. B. Lautsprecher" style="min-width:280px">
+      ${mcs.map(m => `<label class="sub"><input type="checkbox" class="fmc_${mod.id}" value="${esc(m)}" ${m === mcs[0] ? 'checked' : ''}> ${esc(m)}</label>`).join('')}
+      <button onclick="addFeature('${mod.id}')">Eintragen</button></div>`;
+    if (!mod.features.length) { h += '<div class="sub">Noch keine Features.</div>'; continue; }
+    h += '<table class="ftable"><tr><th>Feature</th>' + mcs.map(m => `<th>Minecraft ${esc(m)}</th>`).join('') + '</tr>';
+    for (const f of mod.features) {
+      h += `<tr><td>${esc(f.name)}</td>`;
+      for (const m of mcs) {
+        const v = f.in ? f.in[m] : null;
+        const data = `data-mod="${esc(mod.id)}" data-name="${esc(f.name)}" data-mc="${esc(m)}"`;
+        h += v ? `<td class="has" ${data} onclick="featRemove(this)" title="Klick = austragen">seit ${esc(v)}</td>`
+               : `<td class="miss" ${data} onclick="featAdd(this)" title="Klick = eintragen">fehlt</td>`;
+      }
+      h += '</tr>';
+    }
+    h += '</table>';
+  }
+  document.getElementById('features').innerHTML = h;
+}
+
+function describe(a) { return Object.entries(a).filter(([k]) => k !== 'notes').map(([k, v]) => `${k}=${v}`).join(' '); }
+
+async function act(a) {
+  const busy = document.getElementById('busy');
+  busy.textContent = 'läuft: ' + describe(a) + ' …';
+  document.querySelectorAll('button').forEach(b => b.disabled = true);
+  out.textContent += `\n> ${describe(a)}\n`;
+  out.scrollTop = 1e9;
+  try {
+    const r = await fetch('/api/run', { method: 'POST', body: encodeURIComponent(JSON.stringify(a)) });
+    out.textContent += await r.text();
+  } catch (e) { out.textContent += 'Fehler: ' + e + '\n'; }
+  out.scrollTop = 1e9;
+  document.querySelectorAll('button').forEach(b => b.disabled = false);
+  busy.textContent = '';
+  await load(false);
+}
+
+function dialog(html, onOk) {
+  const d = document.getElementById('dlg');
+  d.innerHTML = html + '<div class="row"><button onclick="document.getElementById(\'dlg\').close()">Abbrechen</button><button class="primary" id="dlgok">OK</button></div>';
+  d.querySelector('#dlgok').onclick = () => { const a = onOk(d); if (a) { d.close(); act(a); } };
+  d.showModal();
+}
+
+function release(key, label) {
+  dialog(`<h3>Release: ${esc(label)}</h3>
+    <label>Was hat sich geändert? (leer = Commit-Liste seit dem letzten Release)</label>
+    <textarea id="rn" rows="6" placeholder="- Neuer Block ...&#10;- Fehler behoben ..."></textarea>
+    <label>Versionssprung (nur wenn es schon ein Release dieser Version gibt)</label>
+    <select id="rb"><option value="patch">Patch (1.2.3 → 1.2.4) – Fehlerkorrektur</option><option value="minor">Minor (1.2.3 → 1.3.0) – neue Funktionen</option><option value="major">Major (1.2.3 → 2.0.0) – großer Umbau</option></select>
+    <label><input type="checkbox" id="rd" checked style="width:auto"> nur Probelauf (zeigt den Plan, ändert nichts)</label>
+    <div class="hint">Ein echtes Release baut alles, schreibt CHANGELOG.md, committet, taggt, pusht, erstellt das GitHub-Release und legt Jars + MODRINTH.md in Mc Mods\\Releases ab.</div>`,
+    d => ({ cmd: 'release', key, notes: d.querySelector('#rn').value, bump: d.querySelector('#rb').value, dry: d.querySelector('#rd').checked }));
+}
+
+function port(modId, mc) {
+  const mod = S.overview.mods.find(m => m.id === modId);
+  const opts = mod.variants.map(v => `<option>${esc(v.mc)}</option>`).join('');
+  dialog(`<h3>${esc(mod.name)}: neue Minecraft-Version</h3>
+    <label>Neue Minecraft-Version</label><input id="pm" value="${esc(mc || '')}" placeholder="z. B. 1.21.4">
+    <label>Starten von (Code wird von dieser Version kopiert)</label><select id="pf">${opts}</select>
+    <div class="hint">Legt einen neuen Ordner (git worktree) und Branch an und trägt die Variante ein. Danach müssen fabric_version und der Code für die neue Version angepasst werden.</div>`,
+    d => { const m = d.querySelector('#pm').value.trim(); if (!m) return null; return { cmd: 'port', mod: modId, mc: m, from: d.querySelector('#pf').value }; });
+}
+
+function newAddon() {
+  const mcs = S.overview.minecraftVersions.map(m => `<option>${esc(m)}</option>`).join('');
+  dialog(`<h3>Neues Netcraft-Addon</h3>
+    <label>Name</label><input id="nn" placeholder="Netcraft: Mein Addon">
+    <label>Mod-ID (klein, nur a-z 0-9 _)</label><input id="ni" placeholder="netcraft_mein_addon">
+    <label>Minecraft-Version</label><select id="nm">${mcs}</select>
+    <div class="hint">Legt Ordner, Code-Gerüst (hängt von Netcraft ab), Branch und Eintrag in mods.json an.</div>`,
+    d => { const n = d.querySelector('#nn').value.trim(), i = d.querySelector('#ni').value.trim(); if (!n || !i) return null; return { cmd: 'new', name: n, id: i, mc: d.querySelector('#nm').value }; });
+}
+
+function addFeature(modId) {
+  const name = document.getElementById('fn_' + modId).value.trim();
+  const mcs = [...document.querySelectorAll('.fmc_' + modId)].filter(c => c.checked).map(c => c.value);
+  if (!name || !mcs.length) return;
+  act({ cmd: 'feature-add', mod: modId, name, mc: mcs.join(',') });
+}
+function featAdd(td) { act({ cmd: 'feature-add', mod: td.dataset.mod, name: td.dataset.name, mc: td.dataset.mc }); }
+function featRemove(td) { if (confirm(`'${td.dataset.name}' für Minecraft ${td.dataset.mc} austragen?`)) act({ cmd: 'feature-remove', mod: td.dataset.mod, name: td.dataset.name, mc: td.dataset.mc }); }
+
+load(true);
+</script>
+</body>
+</html>

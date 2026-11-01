@@ -1,4 +1,4 @@
-﻿# Netcraft-Mods: Anleitung für Claude
+# Netcraft-Mods: Anleitung für Claude
 
 Alle Netcraft-Mods (Netcraft und seine Addons) werden mit **modtool** verwaltet:
 `modtool\modtool.ps1` (Aufruf auch `modtool\modtool.cmd`), Konfiguration `modtool\mods.json`,
@@ -58,7 +58,8 @@ Die aktuelle, vollständige Liste steht immer in `modtool\mods.json`.
 |---|---|
 | `modtool status` | kurzer Stand aller Varianten |
 | `modtool overview [-Json] [-Offline]` | Matrix Mods × Minecraft-Versionen + Features |
-| `modtool dashboard` | dasselbe als Webseite `modtool\dashboard.html` (nur Ansicht) |
+| `modtool gui` | **Oberfläche im Browser** (http://127.0.0.1:8765): alle Branches, Knöpfe für Bauen, Starten, Release, Push, neue Minecraft-Version, neues Addon, Features. Für den Nutzer: Doppelklick auf `Mc Mods\Netcraft modtool.cmd` |
+| `modtool dashboard` | Schnappschuss als Webseite `modtool\dashboard.html` (nur Ansicht) |
 | `modtool build [mod] [-Mc x] [-All]` | baut nur Geändertes, Abhängigkeiten zuerst; Jars nach `Mc Mods\Releases\latest\<mc>` |
 | `modtool run [mod] [-Mc x]` | baut und startet Minecraft mit Mod + Abhängigkeiten (Testwelt im `run` der Basis-Mod) |
 | `modtool release [mod] [-Mc x] [-Notes "..."] [-Bump patch\|minor\|major] [-DryRun]` | Version hoch, alles zusammen bauen (Abhängige werden mitgetestet), CHANGELOG.md, Commit, Tag, Push, GitHub-Release mit Jar, Ordner `Mc Mods\Releases\release <Datum>` mit Jars + MODRINTH.md |
