@@ -1,0 +1,30 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "netcraft_pc_builder:block/case_side",
+    "front": "netcraft_pc_builder:block/case_front_on",
+    "side": "netcraft_pc_builder:block/case_side",
+    "window": "netcraft_pc_builder:block/case_window",
+    "top": "netcraft_pc_builder:block/case_top",
+    "inner": "netcraft_pc_builder:block/case_inner"
+  },
+  "elements": [
+    {
+      "from": [4, 0, 2],
+      "to": [12, 11, 14],
+      "faces": {
+        "north": {"texture": "#front"},
+        "south": {"texture": "#side"},
+        "east": {"texture": "#window"},
+        "west": {"texture": "#side"},
+        "up": {"texture": "#top"},
+        "down": {"texture": "#top"}
+      }
+    },
+    {"from": [4, 0, 2], "to": [5, 11, 14], "faces": {"east": {"texture": "#inner"}}},
+    {"from": [4, 0, 2], "to": [12, 1, 14], "faces": {"up": {"texture": "#inner"}}},
+    {"from": [4, 10, 2], "to": [12, 11, 14], "faces": {"down": {"texture": "#inner"}}},
+    {"from": [4, 0, 2], "to": [12, 11, 3], "faces": {"south": {"texture": "#inner"}}},
+    {"from": [4, 0, 13], "to": [12, 11, 14], "faces": {"north": {"texture": "#inner"}}}
+  ]
+}

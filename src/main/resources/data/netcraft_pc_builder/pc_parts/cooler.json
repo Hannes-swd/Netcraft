@@ -1,0 +1,12 @@
+{
+  "_note": "type = air / aio. height_mm (Luft) bzw. radiator_mm (AIO). max_tdp ist ein Spielwert (Hersteller geben das selten an).",
+  "parts": [
+    {"id":"noctua_nh_l9a_am5","brand":"Noctua","name":"NH-L9a-AM5","type":"air","height_mm":37,"sockets":["AM4","AM5"],"max_tdp":95},
+    {"id":"bequiet_pure_rock_2","brand":"be quiet!","name":"Pure Rock 2","type":"air","height_mm":155,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":150},
+    {"id":"thermalright_pa120_se","brand":"Thermalright","name":"Peerless Assassin 120 SE","type":"air","height_mm":155,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":220},
+    {"id":"arctic_freezer_36","brand":"ARCTIC","name":"Freezer 36","type":"air","height_mm":159,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":200},
+    {"id":"noctua_nh_d15","brand":"Noctua","name":"NH-D15","type":"air","height_mm":165,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":250},
+    {"id":"arctic_lf3_360","brand":"ARCTIC","name":"Liquid Freezer III 360","type":"aio","radiator_mm":360,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":300},
+    {"id":"corsair_h150i_elite","brand":"Corsair","name":"iCUE H150i ELITE","type":"aio","radiator_mm":360,"sockets":["LGA1700","LGA1851","AM4","AM5"],"max_tdp":300}
+  ]
+}

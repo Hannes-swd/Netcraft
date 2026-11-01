@@ -1,0 +1,16 @@
+{
+  "_note": "Referenz-/Founders-Edition. power = Leistungsaufnahme (W). connectors: pcie8 = 8-Pin (6+2), pcie6 = 6-Pin, 12vhpwr = 16-Pin. min_psu = empfohlenes Netzteil (W). length_mm = Kartenlaenge.",
+  "parts": [
+    {"id":"nvidia_gtx_1650","brand":"NVIDIA","name":"GeForce GTX 1650","vram_gb":4,"power":75,"connectors":{},"min_psu":300,"length_mm":170},
+    {"id":"nvidia_rtx_3060","brand":"NVIDIA","name":"GeForce RTX 3060 12 GB","vram_gb":12,"power":170,"connectors":{"pcie8":1},"min_psu":550,"length_mm":242},
+    {"id":"nvidia_rtx_4060","brand":"NVIDIA","name":"GeForce RTX 4060","vram_gb":8,"power":115,"connectors":{"pcie8":1},"min_psu":550,"length_mm":240},
+    {"id":"nvidia_rtx_4070_super","brand":"NVIDIA","name":"GeForce RTX 4070 SUPER","vram_gb":12,"power":220,"connectors":{"12vhpwr":1},"min_psu":650,"length_mm":244},
+    {"id":"nvidia_rtx_4080_super","brand":"NVIDIA","name":"GeForce RTX 4080 SUPER","vram_gb":16,"power":320,"connectors":{"12vhpwr":1},"min_psu":750,"length_mm":304},
+    {"id":"nvidia_rtx_4090","brand":"NVIDIA","name":"GeForce RTX 4090","vram_gb":24,"power":450,"connectors":{"12vhpwr":1},"min_psu":850,"length_mm":304},
+    {"id":"nvidia_rtx_5090","brand":"NVIDIA","name":"GeForce RTX 5090","vram_gb":32,"power":575,"connectors":{"12vhpwr":1},"min_psu":1000,"length_mm":304},
+    {"id":"amd_rx_6600","brand":"AMD","name":"Radeon RX 6600","vram_gb":8,"power":132,"connectors":{"pcie8":1},"min_psu":450,"length_mm":190},
+    {"id":"amd_rx_7800_xt","brand":"AMD","name":"Radeon RX 7800 XT","vram_gb":16,"power":263,"connectors":{"pcie8":2},"min_psu":700,"length_mm":267},
+    {"id":"amd_rx_7900_xtx","brand":"AMD","name":"Radeon RX 7900 XTX","vram_gb":24,"power":355,"connectors":{"pcie8":2},"min_psu":800,"length_mm":287},
+    {"id":"intel_arc_a770","brand":"Intel","name":"Arc A770 16 GB","vram_gb":16,"power":225,"connectors":{"pcie8":1,"pcie6":1},"min_psu":650,"length_mm":268}
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {"item": "minecraft:paper"},
+    {"item": "minecraft:iron_ingot"},
+    {"item": "minecraft:redstone"},
+    {"item": "minecraft:copper_ingot"}
+  ],
+  "result": {
+    "id": "netcraft_pc_builder:psu_template",
+    "count": 1
+  }
+}

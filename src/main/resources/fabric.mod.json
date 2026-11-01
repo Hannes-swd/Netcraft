@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "netcraft_pc_builder",
+  "version": "${version}",
+  "name": "Netcraft: PC Builder",
+  "description": "Build your own Netcraft computers from real PC parts: CPUs, graphics cards, mainboards, RAM, coolers, power supplies and drives. Compatibility matters, and the parts decide the computer's real hardware.",
+  "authors": [
+    "Hannes"
+  ],
+  "license": "All-Rights-Reserved",
+  "icon": "assets/netcraft_pc_builder/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.hannes.netcraft_pc_builder.PcBuilder"
+    ],
+    "client": [
+      "dev.hannes.netcraft_pc_builder.client.PcBuilderClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft_version}",
+    "virtual_mashine": ">=${netcraft_version}"
+  }
+}

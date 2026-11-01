@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": {"model": "netcraft_pc_builder:block/part_fabricator"},
+    "facing=east": {"model": "netcraft_pc_builder:block/part_fabricator", "y": 90},
+    "facing=south": {"model": "netcraft_pc_builder:block/part_fabricator", "y": 180},
+    "facing=west": {"model": "netcraft_pc_builder:block/part_fabricator", "y": 270}
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "rolls": 1.0,
+      "conditions": [{"condition": "minecraft:survives_explosion"}],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "netcraft_pc_builder:case_medium",
+          "functions": [
+            {
+              "function": "minecraft:copy_components",
+              "source": "block_entity",
+              "include": ["virtual_mashine:pc_id", "netcraft_pc_builder:pc_build"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "random_sequence": "netcraft_pc_builder:blocks/case_medium"
+}

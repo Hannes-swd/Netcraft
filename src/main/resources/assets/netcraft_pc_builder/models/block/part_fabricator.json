@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "netcraft_pc_builder:block/part_fabricator_front",
+    "side": "netcraft_pc_builder:block/part_fabricator_side",
+    "top": "netcraft_pc_builder:block/part_fabricator_top"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,lit=false": {"model": "netcraft_pc_builder:block/case_small"},
+    "facing=north,lit=true": {"model": "netcraft_pc_builder:block/case_small_on"},
+    "facing=east,lit=false": {"model": "netcraft_pc_builder:block/case_small", "y": 90},
+    "facing=east,lit=true": {"model": "netcraft_pc_builder:block/case_small_on", "y": 90},
+    "facing=south,lit=false": {"model": "netcraft_pc_builder:block/case_small", "y": 180},
+    "facing=south,lit=true": {"model": "netcraft_pc_builder:block/case_small_on", "y": 180},
+    "facing=west,lit=false": {"model": "netcraft_pc_builder:block/case_small", "y": 270},
+    "facing=west,lit=true": {"model": "netcraft_pc_builder:block/case_small_on", "y": 270}
+  }
+}

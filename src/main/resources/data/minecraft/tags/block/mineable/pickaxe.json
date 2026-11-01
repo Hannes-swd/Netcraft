@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "netcraft_pc_builder:case_small",
+    "netcraft_pc_builder:case_medium",
+    "netcraft_pc_builder:case_large",
+    "netcraft_pc_builder:part_fabricator"
+  ]
+}

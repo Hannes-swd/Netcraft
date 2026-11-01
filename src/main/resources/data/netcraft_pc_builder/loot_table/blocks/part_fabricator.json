@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "rolls": 1.0,
+      "conditions": [{"condition": "minecraft:survives_explosion"}],
+      "entries": [{"type": "minecraft:item", "name": "netcraft_pc_builder:part_fabricator"}]
+    }
+  ],
+  "random_sequence": "netcraft_pc_builder:blocks/part_fabricator"
+}

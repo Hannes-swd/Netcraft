@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "netcraft_pc_builder:item/storage_template"
+  }
+}

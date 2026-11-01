@@ -1,0 +1,11 @@
+{
+  "_note": "pcie8 = Anzahl 8-Pin-PCIe-Kabel (passen auch als 6-Pin), 12vhpwr = 16-Pin-Kabel.",
+  "parts": [
+    {"id":"cm_mwe_450_v2","brand":"Cooler Master","name":"MWE 450 Bronze V2","watts":450,"rating":"80+ Bronze","pcie8":1,"12vhpwr":0},
+    {"id":"bequiet_sp10_550","brand":"be quiet!","name":"System Power 10 550W","watts":550,"rating":"80+ Bronze","pcie8":2,"12vhpwr":0},
+    {"id":"corsair_rm750e","brand":"Corsair","name":"RM750e (ATX 3.0)","watts":750,"rating":"80+ Gold","pcie8":3,"12vhpwr":1},
+    {"id":"seasonic_focus_gx850_atx3","brand":"Seasonic","name":"FOCUS GX-850 ATX 3.0","watts":850,"rating":"80+ Gold","pcie8":3,"12vhpwr":1},
+    {"id":"bequiet_dp13_1000","brand":"be quiet!","name":"Dark Power 13 1000W","watts":1000,"rating":"80+ Titanium","pcie8":4,"12vhpwr":1},
+    {"id":"corsair_hx1500i","brand":"Corsair","name":"HX1500i","watts":1500,"rating":"80+ Platinum","pcie8":6,"12vhpwr":2}
+  ]
+}
