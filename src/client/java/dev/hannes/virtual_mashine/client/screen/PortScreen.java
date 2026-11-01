@@ -67,6 +67,9 @@ public class PortScreen extends Screen {
 
     /** Wide enough for the longest port label ("eth1 WAN", "Console"). */
     private int socketWidth = MIN_SOCKET_W;
+    /** Socket grid: sockets per row and number of rows. */
+    private int cols = 1;
+    private int rows = 1;
 
     @Override
     protected void init() {
@@ -75,10 +78,19 @@ public class PortScreen extends Screen {
         for (NetPayloads.PortInfo port : view.ports()) {
             socketWidth = Math.max(socketWidth, font.width(port.name()) + 4);
         }
-        panelW = Math.max(220, ports * (socketWidth + GAP) + GAP + 20);
-        panelH = SOCKET_H + (tester ? 54 : 44);
+        // Two rows by default (from 4 sockets on); more rows when the window is still too narrow.
+        int maxW = width - 20;
+        rows = ports >= 4 ? 2 : 1;
+        cols = Math.max(1, (ports + rows - 1) / rows);
+        while (cols > 1 && cols * (socketWidth + GAP) + GAP + 20 > maxW) {
+            rows++;
+            cols = (ports + rows - 1) / rows;
+        }
+        rows = Math.max(1, (ports + cols - 1) / cols);
+        panelW = Math.max(220, cols * (socketWidth + GAP) + GAP + 20);
+        panelH = SOCKET_H + (tester ? 54 : 44) + (rows - 1) * rowStride();
         panelX = (width - panelW) / 2;
-        panelY = height / 2 - panelH / 2 - 10;
+        panelY = Math.max(32, height / 2 - panelH / 2 - 10);
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
                 .bounds(width / 2 - 50, panelY + panelH + 52, 100, 20).build());
     }
@@ -97,20 +109,28 @@ public class PortScreen extends Screen {
         }
     }
 
-    private int socketX(int port) {
-        int ports = view.ports().size();
-        int rowWidth = ports * socketWidth + (ports - 1) * GAP;
-        return panelX + (panelW - rowWidth) / 2 + port * (socketWidth + GAP);
+    /** Vertical distance between two socket rows: socket, name and (tester) speed line. */
+    private int rowStride() {
+        return SOCKET_H + (tester ? 26 : 16);
     }
 
-    private int socketY() {
-        return panelY + 18;
+    private int socketX(int port) {
+        int ports = view.ports().size();
+        int row = port / cols;
+        int inRow = Math.min(cols, ports - row * cols);
+        int rowWidth = inRow * socketWidth + (inRow - 1) * GAP;
+        return panelX + (panelW - rowWidth) / 2 + (port % cols) * (socketWidth + GAP);
+    }
+
+    private int socketY(int port) {
+        return panelY + 18 + (port / cols) * rowStride();
     }
 
     private int socketAt(double x, double y) {
         for (int i = 0; i < view.ports().size(); i++) {
             int sx = socketX(i);
-            if (x >= sx && x < sx + socketWidth && y >= socketY() && y < socketY() + SOCKET_H) {
+            int sy = socketY(i);
+            if (x >= sx && x < sx + socketWidth && y >= sy && y < sy + SOCKET_H) {
                 return i;
             }
         }
@@ -162,7 +182,7 @@ public class PortScreen extends Screen {
 
     private void drawSocket(GuiGraphicsExtractor graphics, int index, NetPayloads.PortInfo port, boolean blink, int mouseX, int mouseY) {
         int x = socketX(index);
-        int y = socketY();
+        int y = socketY(index);
         boolean hover = socketAt(mouseX, mouseY) == index;
         if (isUsb(index)) {
             drawUsbSocket(graphics, x, y, port, hover);
