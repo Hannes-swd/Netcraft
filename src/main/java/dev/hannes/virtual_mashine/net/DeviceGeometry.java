@@ -4,50 +4,14 @@ import dev.hannes.virtual_mashine.device.DeviceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
-import org.jspecify.annotations.Nullable;
 
 /** Where on a device's housing each socket sits, so cables end exactly at their port. */
 public final class DeviceGeometry {
     private DeviceGeometry() {
     }
 
-    /** Devices in a rack are drawn a little narrower, so they fit between its posts. */
-    public static final double RACK_SCALE = 14.0 / 16.0;
-
-    /** How much a device is squeezed in height in a rack: the full-block server becomes a half-height unit. */
-    public static double rackScaleY(DeviceType type) {
-        return type == DeviceType.SERVER ? type.rackHeight() / 16.0 : 1.0;
-    }
-
     public static Vec3 socket(Cable.End end) {
-        return socket(end.type(), end.pos(), end.direction(), end.port, end.rack);
-    }
-
-    /**
-     * @param rack height of the device's bottom in its rack in blocks, null = standing on its own
-     */
-    public static Vec3 socket(DeviceType type, BlockPos pos, Direction facing, int port, @Nullable Double rack) {
-        Vec3 alone = socket(type, BlockPos.ZERO, facing, port);
-        if (rack == null) {
-            return alone.add(pos.getX(), pos.getY(), pos.getZ());
-        }
-        return new Vec3(pos.getX() + 0.5 + (alone.x - 0.5) * RACK_SCALE, pos.getY() + rack + alone.y * rackScaleY(type),
-                pos.getZ() + 0.5 + (alone.z - 0.5) * RACK_SCALE);
-    }
-
-    /** The side of the housing a socket is on: a cable leaves it in this direction. */
-    public static Direction socketFace(DeviceType type, Direction facing, int port) {
-        if (type == DeviceType.HDMI_SWITCH || type == DeviceType.USB_HUB) {
-            int index = type == DeviceType.HDMI_SWITCH ? type.hdmiIndex(port) : type.usbIndex(port);
-            return index == 0 ? facing.getOpposite() : facing;
-        }
-        if (type.isConsolePort(port) && type.portsOnFront) {
-            return facing.getOpposite();
-        }
-        if (type.isHdmiPort(port) || type.isUsbPort(port) || type.isAudioPort(port)) {
-            return facing.getOpposite();
-        }
-        return type.portsOnFront ? facing : facing.getOpposite();
+        return socket(end.type(), end.pos(), end.direction(), end.port);
     }
 
     /**
@@ -70,22 +34,6 @@ public final class DeviceGeometry {
             } else {
                 offset = type.socketSpread / 2 - type.socketSpread * (index - 1) / 3;
             }
-        } else if (type == DeviceType.SPEAKER) {
-            // Speaker: HDMI IN, AUDIO IN and AUDIO OUT in a row low on the back.
-            offset = type.isHdmiPort(port) ? 0.12 : type.audioIndex(port) == 0 ? 0 : -0.12;
-        } else if (type.isAudioPort(port)) {
-            // Line out of computers and monitors: the green jack next to the HDMI sockets.
-            offset = switch (type) {
-                case SERVER -> 0.04;
-                case PC -> -0.06;
-                default -> -0.28;
-            };
-            y = switch (type) {
-                case PC -> type.socketY - 0.06;
-                case SERVER -> type.socketY - 0.14;
-                case DISPLAY -> type.socketY - 0.2;
-                default -> type.socketY;
-            };
         } else if (type.isHdmiPort(port)) {
             // Computers and monitors: HDMI sockets on the back, on the other side than the USB row.
             offset = -(switch (type) {

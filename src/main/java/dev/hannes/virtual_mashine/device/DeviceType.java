@@ -9,12 +9,12 @@ import java.util.Locale;
 public enum DeviceType {
     //       id                kind              ports prefix  first  alwaysOn ram   cpus  portsOnFront depth  portY  spread
     PC("pc", Kind.VM, 1, "eth", 0, false, 4096, 2, false, 0.50, 0.16, 0.0),
-    SERVER("server", Kind.VM, 2, "eth", 0, true, 2048, 2, false, 0.50, 0.55, 0.25),
+    SERVER("server", Kind.VM, 2, "eth", 0, true, 2048, 2, false, 0.375, 0.55, 0.25),
     ROUTER("router", Kind.VM, 4, "eth", 0, true, 512, 1, true, 0.375, 0.10, 0.54),
-    MANAGED_SWITCH("managed_switch", Kind.VM, 8, "Port ", 1, true, 512, 1, true, 0.50, 0.10, 0.80),
-    SWITCH("switch", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.10, 0.80),
+    MANAGED_SWITCH("managed_switch", Kind.VM, 8, "Port ", 1, true, 512, 1, true, 0.50, 0.13, 0.80),
+    SWITCH("switch", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.13, 0.80),
     /** Ethernet hub: learns nothing, every frame goes out of all other ports. */
-    HUB("hub", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.10, 0.80),
+    HUB("hub", Kind.SWITCH, 8, "Port ", 1, true, 0, 0, true, 0.50, 0.13, 0.80),
     MODEM("modem", Kind.MODEM, 1, "LAN", -1, true, 0, 0, false, 0.25, 0.22, 0.0),
     /** Notebook: a computer with only a WLAN card (port 0 has no socket). */
     LAPTOP("laptop", Kind.VM, 1, "wlan", 0, false, 4096, 2, false, 0.30, 0.05, 0.0),
@@ -33,11 +33,9 @@ public enum DeviceType {
     /** HDMI switch: one input from a computer, four monitor outputs (own screens each, or all the same picture). */
     HDMI_SWITCH("hdmi_switch", Kind.HDMI_SWITCH, 0, "", -1, true, 0, 0, true, 0.25, 0.09, 0.45),
     /** USB hub: plugged into a computer (or another hub), gives four more USB sockets. */
-    USB_HUB("usb_hub", Kind.USB_HUB, 0, "", -1, true, 0, 0, true, 0.19, 0.06, 0.36),
-    /** Loudspeaker: plays a computer's sound into the world, fed over HDMI or an audio cable; the volume is its reach. */
-    SPEAKER("speaker", Kind.SPEAKER, 0, "", -1, true, 0, 0, false, 0.25, 0.12, 0.0);
+    USB_HUB("usb_hub", Kind.USB_HUB, 0, "", -1, true, 0, 0, true, 0.19, 0.06, 0.36);
 
-    public enum Kind { VM, SWITCH, MODEM, AP, IO, USB, HDMI_SWITCH, USB_HUB, SPEAKER }
+    public enum Kind { VM, SWITCH, MODEM, AP, IO, USB, HDMI_SWITCH, USB_HUB }
 
     /** Picture outputs (heads) of a computer's graphics card: its HDMI sockets plus what HDMI switches add. */
     public static final int MAX_SCREENS = 4;
@@ -98,21 +96,6 @@ public enum DeviceType {
         return wirelessOnly() && port == 0;
     }
 
-    /**
-     * Height in a rack in pixels (sixteenths of a block), the same as the device standing on its own
-     * except the server, which is squeezed to half height (see {@link dev.hannes.virtual_mashine.net.DeviceGeometry#rackScaleY});
-     * 0 = it does not go into a rack.
-     */
-    public int rackHeight() {
-        return switch (this) {
-            case SERVER -> 7; // A full block on its own, a flat half-height unit in a rack: two fit.
-            case MODEM -> 7;
-            case SWITCH, HUB, MANAGED_SWITCH -> 4;
-            case ROUTER -> 3;
-            default -> 0;
-        };
-    }
-
     /** USB sockets: computers have some for microphones and cameras, a USB device has its one plug. */
     public int usbPorts() {
         return switch (this) {
@@ -130,37 +113,8 @@ public enum DeviceType {
             case PC -> 2;
             case SERVER, LAPTOP, DISPLAY -> 1;
             case HDMI_SWITCH -> 5;
-            case SPEAKER -> 1;
             default -> 0;
         };
-    }
-
-    /** 3.5 mm audio jacks: line out of computers and monitors, input and pass-through of a speaker. */
-    public int audioPorts() {
-        return switch (this) {
-            case PC, SERVER, LAPTOP, DISPLAY -> 1;
-            case SPEAKER -> 2;
-            default -> 0;
-        };
-    }
-
-    public boolean isAudioPort(int port) {
-        int first = audioPort(0);
-        return port >= first && port < first + audioPorts();
-    }
-
-    /** 0 for the first audio jack. */
-    public int audioIndex(int port) {
-        return port - audioPort(0);
-    }
-
-    public int audioPort(int index) {
-        return ports + (hasConsole() ? 1 : 0) + usbPorts() + hdmiPorts() + index;
-    }
-
-    /** Sound leaves the device here (line out, a speaker's pass-through); the other end must be an input. */
-    public boolean isAudioOutput(int port) {
-        return isAudioPort(port) && (this != SPEAKER || audioIndex(port) == 1);
     }
 
     /** A computer whose graphics card drives several screens (HDMI monitors). */
@@ -211,9 +165,9 @@ public enum DeviceType {
         return kind == Kind.USB;
     }
 
-    /** Network ports, the serial port, the USB ports, the HDMI ports, then the audio jacks. */
+    /** Network ports, the serial port, the USB ports, then the HDMI ports. */
     public int totalPorts() {
-        return ports + (hasConsole() ? 1 : 0) + usbPorts() + hdmiPorts() + audioPorts();
+        return ports + (hasConsole() ? 1 : 0) + usbPorts() + hdmiPorts();
     }
 
     public boolean isUsbPort(int port) {
@@ -232,18 +186,11 @@ public enum DeviceType {
 
     /** What the port is called on the device's housing, e.g. "eth0", "Port 3" or "Console". */
     public String portName(int port) {
-        if (isAudioPort(port)) {
-            return switch (this) {
-                case SPEAKER -> audioIndex(port) == 0 ? "AUDIO IN" : "AUDIO OUT";
-                case DISPLAY -> "AUDIO OUT";
-                default -> "LINE OUT";
-            };
-        }
         if (isHdmiPort(port)) {
             int index = hdmiIndex(port);
             return switch (this) {
                 case PC -> "HDMI " + (index + 1);
-                case DISPLAY, SPEAKER -> "HDMI IN";
+                case DISPLAY -> "HDMI IN";
                 case HDMI_SWITCH -> index == 0 ? "IN" : "OUT " + index;
                 default -> "HDMI";
             };

@@ -7,9 +7,9 @@
     "IRI"
   ],
   "key": {
-    "B": {"item": "minecraft:iron_bars"},
-    "I": {"item": "minecraft:iron_ingot"},
-    "R": {"item": "minecraft:redstone"}
+    "B": "minecraft:iron_bars",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone"
   },
   "result": {
     "id": "virtual_mashine:microphone",

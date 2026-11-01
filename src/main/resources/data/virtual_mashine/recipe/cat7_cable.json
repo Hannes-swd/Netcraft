@@ -6,9 +6,9 @@
     "ICI"
   ],
   "key": {
-    "S": {"item": "minecraft:string"},
-    "C": {"item": "minecraft:copper_ingot"},
-    "I": {"item": "minecraft:iron_ingot"}
+    "S": "minecraft:string",
+    "C": "minecraft:copper_ingot",
+    "I": "minecraft:iron_ingot"
   },
   "result": {
     "id": "virtual_mashine:cat7_cable",

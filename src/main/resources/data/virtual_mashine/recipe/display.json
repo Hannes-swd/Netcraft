@@ -7,10 +7,10 @@
     "ICI"
   ],
   "key": {
-    "I": {"item": "minecraft:iron_ingot"},
-    "G": {"item": "minecraft:glass_pane"},
-    "R": {"item": "minecraft:redstone_lamp"},
-    "C": {"item": "minecraft:comparator"}
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:glass_pane",
+    "R": "minecraft:redstone_lamp",
+    "C": "minecraft:comparator"
   },
   "result": {
     "id": "virtual_mashine:display",

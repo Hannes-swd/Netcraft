@@ -6,9 +6,9 @@
     " R "
   ],
   "key": {
-    "S": {"item": "minecraft:string"},
-    "C": {"item": "minecraft:copper_ingot"},
-    "R": {"item": "minecraft:redstone"}
+    "S": "minecraft:string",
+    "C": "minecraft:copper_ingot",
+    "R": "minecraft:redstone"
   },
   "result": {
     "id": "virtual_mashine:console_cable",

@@ -920,7 +920,7 @@ final class IoHost implements NetworkFabric.Host {
         }
 
         private String page() {
-            String[] sides = {"front", "back", "left", "right", "top", "bottom"};
+            String[] sides = {"vorne", "hinten", "links", "rechts", "oben", "unten"};
             StringBuilder s = new StringBuilder();
             s.append("<!doctype html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"2\">")
                     .append("<meta name=\"viewport\" content=\"width=device-width\"><title>").append(escape(name()))
@@ -928,20 +928,20 @@ final class IoHost implements NetworkFabric.Host {
                     .append("td,th{padding:6px 10px;text-align:left}a{color:#7cc4ff;margin-right:6px}")
                     .append(".bar{display:inline-block;height:10px;background:#d33;vertical-align:middle}</style></head><body>")
                     .append("<h2>").append(escape(name())).append("</h2><p>IP ").append(IoModule.formatIp(ip))
-                    .append(io.dhcp() ? " (DHCP)" : " (static)").append(" &middot; MAC ").append(io.mac())
-                    .append("<br>Modbus TCP: Port 502 &middot; JSON: <a href=\"/api\">/api</a></p><table><tr><th>Channel</th>")
-                    .append("<th>Side</th><th>Mode</th><th>Level</th><th></th></tr>");
+                    .append(io.dhcp() ? " (DHCP)" : " (fest)").append(" &middot; MAC ").append(io.mac())
+                    .append("<br>Modbus TCP: Port 502 &middot; JSON: <a href=\"/api\">/api</a></p><table><tr><th>Kanal</th>")
+                    .append("<th>Seite</th><th>Modus</th><th>Pegel</th><th></th></tr>");
             for (int ch = 0; ch < IoModule.CHANNELS; ch++) {
                 boolean out = io.isOutput(ch);
                 int level = io.level(ch);
                 s.append("<tr><td>").append(ch).append("</td><td>").append(sides[ch]).append("</td><td>")
-                        .append(out ? "Output" : "Input").append(" <a href=\"/mode?ui=1&ch=").append(ch)
-                        .append(out ? "&mode=input\">&rarr;Input" : "&mode=output\">&rarr;Output").append("</a></td><td>")
+                        .append(out ? "Ausgang" : "Eingang").append(" <a href=\"/mode?ui=1&ch=").append(ch)
+                        .append(out ? "&mode=input\">&rarr;Eingang" : "&mode=output\">&rarr;Ausgang").append("</a></td><td>")
                         .append(level).append(" <span class=\"bar\" style=\"width:").append(level * 6).append("px\"></span></td><td>");
                 if (out) {
                     for (int value : new int[]{0, 1, 7, 15}) {
                         s.append("<a href=\"/set?ui=1&ch=").append(ch).append("&level=").append(value).append("\">")
-                                .append(value == 0 ? "Off" : value == 15 ? "On" : Integer.toString(value)).append("</a>");
+                                .append(value == 0 ? "Aus" : value == 15 ? "An" : Integer.toString(value)).append("</a>");
                     }
                 }
                 s.append("</td></tr>");

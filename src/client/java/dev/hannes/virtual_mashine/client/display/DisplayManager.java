@@ -8,12 +8,12 @@ import dev.hannes.virtual_mashine.client.vnc.VncKeyboard;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import dev.hannes.virtual_mashine.client.input.KeyEvent;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -50,7 +50,7 @@ public final class DisplayManager {
 
     private static final class Feed {
         final FeedKey key;
-        final ResourceLocation textureId;
+        final Identifier textureId;
         final DisplayTexture texture = new DisplayTexture();
         @Nullable RfbClient client;
         int port;
@@ -108,7 +108,7 @@ public final class DisplayManager {
      * @param source the computer on the HDMI cable, null for the display's own system
      * @param head   which screen of {@code source}
      */
-    public static @Nullable ResourceLocation frame(UUID id, BlockPos pos, Direction facing, int width, int height, int port,
+    public static @Nullable Identifier frame(UUID id, BlockPos pos, Direction facing, int width, int height, int port,
                                              @Nullable UUID source, int head) {
         long now = System.currentTimeMillis();
         Monitor monitor = MONITORS.computeIfAbsent(id, key -> new Monitor());
@@ -368,7 +368,7 @@ public final class DisplayManager {
     }
 
     public static void handleRawKey(KeyEvent event, int action) {
-        if (action == VncKeyboard.ACTION_PRESS && VncKeyboard.isReleaseCombo(Minecraft.getInstance().getWindow().getWindow(), event.key())) {
+        if (action == VncKeyboard.ACTION_PRESS && VncKeyboard.isReleaseCombo(Minecraft.getInstance().getWindow().handle(), event.key())) {
             releaseCapture();
             return;
         }
@@ -390,7 +390,7 @@ public final class DisplayManager {
     }
 
     /** Top left while a computer has the keyboard, and a hint while looking at one that could get it. */
-    public static void hud(GuiGraphics graphics, DeltaTracker delta) {
+    public static void hud(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen != null || minecraft.options.hideGui) {
             return;
@@ -410,7 +410,7 @@ public final class DisplayManager {
         int x = (minecraft.getWindow().getGuiScaledWidth() - width) / 2;
         int y = minecraft.getWindow().getGuiScaledHeight() - 72;
         graphics.fill(x - 4, y - 3, x + width + 4, y + 11, 0x90000000);
-        graphics.drawString(minecraft.font, text, x, y, color, false);
+        graphics.text(minecraft.font, text, x, y, color, false);
     }
 
     public static void disconnectAll() {

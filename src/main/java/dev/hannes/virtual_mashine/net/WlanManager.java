@@ -6,7 +6,7 @@ import dev.hannes.virtual_mashine.Virtual_mashine;
 import dev.hannes.virtual_mashine.device.DeviceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -325,7 +325,7 @@ public final class WlanManager {
         Vec3 b = Vec3.atCenterOf(to.pos());
         double distance = Math.max(1.0, a.distanceTo(b));
         double dbm = -30 - 20 * Math.log10(distance);
-        ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(from.dimension())));
+        ServerLevel level = server.getLevel(ResourceKey.create(Registries.DIMENSION, Identifier.parse(from.dimension())));
         if (level == null) {
             return dbm;
         }
@@ -361,7 +361,7 @@ public final class WlanManager {
         if (state.is(BlockTags.WOOL)) {
             return 3;
         }
-        if (state.isSolidRender(level, pos)) {
+        if (state.isSolidRender()) {
             return 12; // stone, concrete, ...
         }
         return 2;

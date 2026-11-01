@@ -6,7 +6,7 @@ import dev.hannes.virtual_mashine.vm.ModConfig;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.openal.ALC10;
@@ -98,7 +98,7 @@ public final class MicCapture {
     }
 
     /** Red dot, level meter and where the voice goes, top left, while recording. */
-    public static void hud(GuiGraphics graphics, DeltaTracker delta) {
+    public static void hud(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         if (!wanted) {
             return;
         }
@@ -124,6 +124,6 @@ public final class MicCapture {
         int meter = Math.round(Math.min(1F, level * 3) * 14);
         graphics.fill(x + 9, y + 5, x + 23, y + 7, 0xFF333333);
         graphics.fill(x + 9, y + 5, x + 9 + meter, y + 7, 0xFF4CAF50);
-        graphics.drawString(minecraft.font, text, x + 27, y, color, true);
+        graphics.text(minecraft.font, text, x + 27, y, color, true);
     }
 }

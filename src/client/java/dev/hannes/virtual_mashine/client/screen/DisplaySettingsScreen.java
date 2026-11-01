@@ -4,7 +4,7 @@ import dev.hannes.virtual_mashine.client.ClientPcState;
 import dev.hannes.virtual_mashine.network.PcActionPayload;
 import dev.hannes.virtual_mashine.network.PcInfoPayload;
 import dev.hannes.virtual_mashine.vm.VmConfig;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
@@ -111,16 +111,16 @@ public class DisplaySettingsScreen extends PcScreen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
-        super.render(graphics, mouseX, mouseY, a);
-        graphics.drawCenteredString(font, Component.literal(serverConfig.name), width / 2, top, WHITE);
-        graphics.drawCenteredString(font, stateText(), width / 2, top + 12, stateColor());
-        graphics.drawString(font, Component.translatable("virtual_mashine.display.url"), left, top + 21, GRAY);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractRenderState(graphics, mouseX, mouseY, a);
+        graphics.centeredText(font, Component.literal(serverConfig.name), width / 2, top, WHITE);
+        graphics.centeredText(font, stateText(), width / 2, top + 12, stateColor());
+        graphics.text(font, Component.translatable("virtual_mashine.display.url"), left, top + 21, GRAY);
         Component message = messageText();
         if (message != null) {
-            graphics.drawCenteredString(font, message, width / 2, top + 166, messageIsError() ? RED : YELLOW);
+            graphics.centeredText(font, message, width / 2, top + 166, messageIsError() ? RED : YELLOW);
         }
-        graphics.drawCenteredString(font, Component.translatable("virtual_mashine.display.hint"), width / 2, top + 180, GRAY);
-        graphics.drawCenteredString(font, Component.translatable("virtual_mashine.display.hdmi_hint"), width / 2, top + 192, GRAY);
+        graphics.centeredText(font, Component.translatable("virtual_mashine.display.hint"), width / 2, top + 180, GRAY);
+        graphics.centeredText(font, Component.translatable("virtual_mashine.display.hdmi_hint"), width / 2, top + 192, GRAY);
     }
 }

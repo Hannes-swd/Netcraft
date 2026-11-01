@@ -6,9 +6,9 @@
     "QCQ"
   ],
   "key": {
-    "Q": {"item": "minecraft:quartz"},
-    "R": {"item": "minecraft:redstone"},
-    "C": {"item": "minecraft:comparator"}
+    "Q": "minecraft:quartz",
+    "R": "minecraft:redstone",
+    "C": "minecraft:comparator"
   },
   "result": {
     "id": "virtual_mashine:modem",

@@ -10,8 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Camera blocks take their picture at the start of a frame, before the player's own view is drawn over it. */
 @Mixin(Minecraft.class)
 public abstract class MinecraftRenderMixin {
-    @Inject(method = "runTick", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/renderer/GameRenderer;render(Lnet/minecraft/client/DeltaTracker;Z)V"))
+    @Inject(method = "renderFrame", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/GameRenderer;update(Lnet/minecraft/client/DeltaTracker;Z)V"))
     private void virtual_mashine$cameraPictures(boolean advanceGameTime, CallbackInfo ci) {
         if (advanceGameTime) {
             CameraCapture.renderDue((Minecraft) (Object) this);

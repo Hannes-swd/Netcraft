@@ -15,11 +15,9 @@ public enum CableType {
     /** USB 2.0 with an active extension: connects a microphone or camera to a computer. */
     USB("usb", Kind.USB, 10, 0x3A3A3E),
     /** HDMI 2.0: carries a computer's picture to a monitor or an HDMI switch. */
-    HDMI("hdmi", Kind.HDMI, 15, 0x2A2A2A),
-    /** 3.5 mm audio cable (green jack): line out of a computer or monitor to a speaker. */
-    AUDIO("audio", Kind.AUDIO, 30, 0x3DAA4F);
+    HDMI("hdmi", Kind.HDMI, 15, 0x2A2A2A);
 
-    public enum Kind { COPPER, FIBER, CONSOLE, USB, HDMI, AUDIO }
+    public enum Kind { COPPER, FIBER, CONSOLE, USB, HDMI }
 
     public final String id;
     public final Kind kind;
@@ -45,10 +43,6 @@ public enum CableType {
         return kind == Kind.HDMI;
     }
 
-    public boolean isAudio() {
-        return kind == Kind.AUDIO;
-    }
-
     /** Console, USB and HDMI cables do not carry network frames. */
     public boolean isNetwork() {
         return kind == Kind.COPPER || kind == Kind.FIBER;
@@ -63,7 +57,6 @@ public enum CableType {
             case CONSOLE -> 0;
             case USB -> 480;
             case HDMI -> 18_000;
-            case AUDIO -> 0;
         };
     }
 
@@ -118,9 +111,6 @@ public enum CableType {
         }
         if (color == CONSOLE.defaultColor) {
             return "virtual_mashine.color.light_blue";
-        }
-        if (color == AUDIO.defaultColor) {
-            return "virtual_mashine.color.green";
         }
         if (color == USB.defaultColor) {
             return "virtual_mashine.color.black";

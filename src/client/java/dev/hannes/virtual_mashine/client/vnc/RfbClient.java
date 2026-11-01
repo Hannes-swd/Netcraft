@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -34,8 +33,6 @@ public final class RfbClient implements Closeable {
     /** Pseudo-encodings -256..-247 select zlib level 0..9; 6 is a good speed/size balance. */
     private static final int ENCODING_COMPRESS_LEVEL_6 = -250;
     private static final int ENCODING_DESKTOP_SIZE = -223;
-    /** "Cursor" pseudo-encoding: the guest's pointer shape (pixels + 1-bit mask); QEMU paints hardware cursors only this way. */
-    private static final int ENCODING_RICH_CURSOR = -239;
     private static final int ENCODING_QEMU_EXTENDED_KEY = -258;
     private static final int ENCODING_EXTENDED_CLIPBOARD = 0xC0A1E5CE;
 
@@ -66,8 +63,6 @@ public final class RfbClient implements Closeable {
     private int dirtyTop = Integer.MAX_VALUE;
     private int dirtyBottom = -1;
     private boolean resized;
-    private @Nullable Cursor cursor;
-    private boolean cursorChanged;
 
     // Reader thread only.
     private byte[] scratch = new byte[0];
@@ -129,23 +124,6 @@ public final class RfbClient implements Closeable {
             dirtyTop = Integer.MAX_VALUE;
             dirtyBottom = -1;
             resized = false;
-        }
-    }
-
-    /**
-     * The guest's pointer: RGBA pixels (alpha 0 outside the shape) with the hotspot it points with.
-     * Width or height 0 means the guest hides its pointer.
-     */
-    public record Cursor(byte[] rgba, int width, int height, int hotX, int hotY) {
-    }
-
-    /** Hands a pointer shape the guest set since the last call to {@code consumer}; does nothing otherwise. */
-    public void consumeCursor(Consumer<Cursor> consumer) {
-        synchronized (frameLock) {
-            if (cursorChanged && cursor != null) {
-                cursorChanged = false;
-                consumer.accept(cursor);
-            }
         }
     }
 
@@ -327,9 +305,9 @@ public final class RfbClient implements Closeable {
 
             // QEMU uses the first encoding in this list that it supports.
             int[] encodings = transport.remote()
-                    ? new int[]{ENCODING_ZLIB, ENCODING_COPY_RECT, ENCODING_RAW, ENCODING_DESKTOP_SIZE, ENCODING_RICH_CURSOR, ENCODING_QEMU_EXTENDED_KEY,
+                    ? new int[]{ENCODING_ZLIB, ENCODING_COPY_RECT, ENCODING_RAW, ENCODING_DESKTOP_SIZE, ENCODING_QEMU_EXTENDED_KEY,
                             ENCODING_EXTENDED_CLIPBOARD, ENCODING_COMPRESS_LEVEL_6}
-                    : new int[]{ENCODING_RAW, ENCODING_COPY_RECT, ENCODING_DESKTOP_SIZE, ENCODING_RICH_CURSOR, ENCODING_QEMU_EXTENDED_KEY, ENCODING_EXTENDED_CLIPBOARD};
+                    : new int[]{ENCODING_RAW, ENCODING_COPY_RECT, ENCODING_DESKTOP_SIZE, ENCODING_QEMU_EXTENDED_KEY, ENCODING_EXTENDED_CLIPBOARD};
             out.writeByte(2);
             out.writeByte(0);
             out.writeShort(encodings.length);
@@ -435,7 +413,6 @@ public final class RfbClient implements Closeable {
                 case ENCODING_ZLIB -> readZlib(in, x, y, w, h);
                 case ENCODING_COPY_RECT -> copyRect(in.readUnsignedShort(), in.readUnsignedShort(), x, y, w, h);
                 case ENCODING_DESKTOP_SIZE -> resize(w, h);
-                case ENCODING_RICH_CURSOR -> readCursor(in, x, y, w, h);
                 case ENCODING_QEMU_EXTENDED_KEY -> extendedKeys = true;
                 default -> throw new IOException("Unsupported VNC encoding " + encoding);
             }
@@ -449,25 +426,6 @@ public final class RfbClient implements Closeable {
         // Read outside the lock so a slow connection never stalls rendering.
         in.readFully(scratch, 0, length);
         putPixels(x, y, w, h);
-    }
-
-    /** Cursor pseudo-encoding: the rectangle's position is the hotspot, then pixels and a 1-bit-per-pixel mask follow. */
-    private void readCursor(DataInputStream in, int hotX, int hotY, int w, int h) throws IOException {
-        byte[] rgba = new byte[w * h * 4];
-        in.readFully(rgba);
-        int maskStride = (w + 7) / 8;
-        byte[] mask = new byte[maskStride * h];
-        in.readFully(mask);
-        for (int row = 0; row < h; row++) {
-            for (int col = 0; col < w; col++) {
-                boolean visible = (mask[row * maskStride + col / 8] & (0x80 >> (col % 8))) != 0;
-                rgba[(row * w + col) * 4 + 3] = visible ? (byte) 0xFF : 0;
-            }
-        }
-        synchronized (frameLock) {
-            cursor = new Cursor(rgba, w, h, hotX, hotY);
-            cursorChanged = true;
-        }
     }
 
     /** Zlib encoding: raw pixels through one zlib stream that lasts the whole connection. */

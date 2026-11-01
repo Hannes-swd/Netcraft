@@ -1,6 +1,6 @@
 plugins {
-    // Minecraft 1.21.1 is obfuscated: the remapping Loom plugin with Mojang's official names.
-    id 'fabric-loom' version '1.18-SNAPSHOT'
+    // Minecraft 26.x ships deobfuscated, so the non-remapping Loom plugin is the right one.
+    id 'net.fabricmc.fabric-loom' version '1.18-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -29,7 +29,6 @@ fabricApi {
 }
 
 repositories {
-    mavenCentral()
     // Add repositories to retrieve artifacts from in here.
     // You should only use this when depending on other mods because
     // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -40,12 +39,10 @@ repositories {
 dependencies {
     // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    // No mappings: Minecraft 26.x class and method names are already the real ones.
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    // The 26.1 sources use JSpecify nullness annotations; Minecraft 1.21.1 does not ship them.
-    compileOnly "org.jspecify:jspecify:1.0.0"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 }
 
 processResources {
@@ -61,14 +58,13 @@ processResources {
     }
 }
 
-def targetJavaVersion = 21
+def targetJavaVersion = 25
 tasks.withType(JavaCompile).configureEach {
     // ensure that the encoding is set to UTF-8, no matter what the system default is
     // this fixes some edge cases with special characters not displaying correctly
     // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
     // If Javadoc is generated, this must be specified in that task too.
     it.options.encoding = "UTF-8"
-    it.options.compilerArgs += ["-Xmaxerrs", "5000"]
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         it.options.release.set(targetJavaVersion)
     }

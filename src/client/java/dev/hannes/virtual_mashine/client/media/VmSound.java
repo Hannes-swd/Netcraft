@@ -8,7 +8,7 @@ import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.resources.sounds.TickableSoundInstance;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundSource;
 import org.jspecify.annotations.Nullable;
 
@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * screen is open (stereo). One stream per machine; a stream nothing arrives for ends.
  */
 public final class VmSound {
-    private static final ResourceLocation SOUND = Virtual_mashine.id("vm_audio");
+    private static final Identifier SOUND = Virtual_mashine.id("vm_audio");
     private static final long SILENCE_MS = 1500;
 
     private static final class Source {
@@ -33,12 +33,10 @@ public final class VmSound {
         final float x;
         final float y;
         final float z;
-        final float range;
         @Nullable Instance instance;
         long lastData;
 
-        Source(int mode, float x, float y, float z, float range) {
-            this.range = range;
+        Source(int mode, float x, float y, float z) {
             this.mode = mode;
             this.stream = mode == MediaPayloads.VmAudio.DIRECT_STEREO ? new PcmStream(44_100, 2) : new PcmStream(22_050, 1);
             this.x = x;
@@ -48,7 +46,7 @@ public final class VmSound {
 
         boolean sameAs(MediaPayloads.VmAudio payload) {
             return mode == payload.mode() && Math.abs(x - payload.x()) < 0.01 && Math.abs(y - payload.y()) < 0.01
-                    && Math.abs(z - payload.z()) < 0.01 && Math.abs(range - payload.range()) < 0.01;
+                    && Math.abs(z - payload.z()) < 0.01;
         }
     }
 
@@ -66,12 +64,11 @@ public final class VmSound {
             this.x = positional ? source.x : 0;
             this.y = positional ? source.y : 0;
             this.z = positional ? source.z : 0;
-            // Above 1 the volume only widens the reach (the engine hears it up to volume x 16 blocks), it gets no louder.
-            this.volume = positional ? Math.max(0.05F, source.range / MediaPayloads.VmAudio.DEFAULT_RANGE) : 1.0F;
+            this.volume = 1.0F;
         }
 
         @Override
-        public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary loader, ResourceLocation id, boolean repeatInstantly) {
+        public CompletableFuture<AudioStream> getAudioStream(SoundBufferLibrary loader, Identifier id, boolean repeatInstantly) {
             return CompletableFuture.completedFuture(stream);
         }
 
@@ -101,7 +98,7 @@ public final class VmSound {
             if (source != null) {
                 stop(source);
             }
-            source = new Source(payload.mode(), payload.x(), payload.y(), payload.z(), payload.range());
+            source = new Source(payload.mode(), payload.x(), payload.y(), payload.z());
             SOURCES.put(payload.vm(), source);
         }
         source.stream.write(payload.pcm());

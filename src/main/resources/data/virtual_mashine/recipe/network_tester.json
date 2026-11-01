@@ -7,10 +7,10 @@
     "ICI"
   ],
   "key": {
-    "I": {"item": "minecraft:iron_ingot"},
-    "R": {"item": "minecraft:redstone"},
-    "G": {"item": "minecraft:glass_pane"},
-    "C": {"item": "minecraft:comparator"}
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "G": "minecraft:glass_pane",
+    "C": "minecraft:comparator"
   },
   "result": {
     "id": "virtual_mashine:network_tester",

@@ -1,54 +1,84 @@
 package dev.hannes.virtual_mashine.client.screen;
 
-import dev.hannes.virtual_mashine.Virtual_mashine;
-import dev.hannes.virtual_mashine.client.display.DisplayTexture;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuSampler;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.blaze3d.textures.TextureFormat;
 import dev.hannes.virtual_mashine.client.vnc.RfbClient;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import org.jspecify.annotations.Nullable;
 
-import java.util.UUID;
+import java.nio.ByteBuffer;
 
-/** Texture mirroring the guest screen; only rows that changed are uploaded. */
+/** GPU texture mirroring the guest screen; only rows that changed are uploaded. */
 final class VmScreenTexture implements AutoCloseable {
-    private final ResourceLocation id = Virtual_mashine.id("screen/" + UUID.randomUUID());
-    private final DisplayTexture texture = new DisplayTexture();
-    private boolean registered;
+    private @Nullable GpuTexture texture;
+    private @Nullable GpuTextureView view;
+    private int width;
+    private int height;
 
-    /** Copies new guest pixels to the GPU. Must run on the render thread. */
+    /** Copies new guest pixels to the GPU. Must run on the render thread outside of a render pass. */
     void update(RfbClient client) {
-        texture.update(client);
-        if (texture.ready() && !registered) {
-            Minecraft.getInstance().getTextureManager().register(id, texture);
-            registered = true;
+        client.consumeFrame(this::upload);
+    }
+
+    private void upload(ByteBuffer pixels, int w, int h, int top, int bottom, boolean resized) {
+        if (w <= 0 || h <= 0) {
+            return;
         }
+        GpuDevice device = RenderSystem.getDevice();
+        if (texture == null || resized || w != width || h != height) {
+            close();
+            texture = device.createTexture(() -> "virtual_mashine screen", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
+                    TextureFormat.RGBA8, w, h, 1, 1);
+            view = device.createTextureView(texture);
+            width = w;
+            height = h;
+            top = 0;
+            bottom = h - 1;
+        }
+        int first = Math.max(0, top);
+        int rows = Math.min(h - 1, bottom) - first + 1;
+        if (rows <= 0) {
+            return;
+        }
+        ByteBuffer band = pixels.slice(first * w * 4, rows * w * 4);
+        device.createCommandEncoder().writeToTexture(texture, band, NativeImage.Format.RGBA, 0, 0, 0, first, w, rows);
     }
 
     boolean ready() {
-        return registered && texture.ready();
+        return view != null;
     }
 
     int width() {
-        return texture.width();
+        return width;
     }
 
     int height() {
-        return texture.height();
+        return height;
     }
 
-    /** Draws the whole screen into the rectangle; smooth when scaled down, sharp when scaled up. */
-    void draw(GuiGraphics graphics, int x, int y, int w, int h, boolean magnified) {
-        texture.setSmooth(!magnified);
-        graphics.blit(id, x, y, w, h, 0.0F, 0.0F, texture.width(), texture.height(), texture.width(), texture.height());
+    @Nullable GpuTextureView view() {
+        return view;
+    }
+
+    /** Smooth when scaled down (sharp text matters less than not losing pixels), sharp when scaled up. */
+    GpuSampler sampler(boolean magnified) {
+        return RenderSystem.getSamplerCache().getClampToEdge(magnified ? FilterMode.NEAREST : FilterMode.LINEAR);
     }
 
     @Override
     public void close() {
-        if (registered) {
-            Minecraft.getInstance().getTextureManager().release(id);
-            registered = false;
-        } else {
+        if (view != null) {
+            view.close();
+            view = null;
+        }
+        if (texture != null) {
             texture.close();
+            texture = null;
         }
     }
 }

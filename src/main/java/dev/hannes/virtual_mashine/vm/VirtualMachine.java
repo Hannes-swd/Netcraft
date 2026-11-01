@@ -424,15 +424,6 @@ public final class VirtualMachine {
             manager.onVmChanged(this);
             return;
         }
-        if (!config.frozen) {
-            // Add-ons may refuse the start or set the hardware (see NetcraftApi).
-            String blocked = dev.hannes.virtual_mashine.api.NetcraftApi.checkStart(id, config);
-            if (blocked != null) {
-                setMessage(blocked, "");
-                manager.onVmChanged(this);
-                return;
-            }
-        }
         boolean resume = config.frozen;
         setState(State.STARTING, resume ? "virtual_mashine.msg.resuming" : "virtual_mashine.msg.starting", "");
         Process started = null;

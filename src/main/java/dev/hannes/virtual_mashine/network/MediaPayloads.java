@@ -26,12 +26,8 @@ public final class MediaPayloads {
      *
      * @param mode {@link #POSITIONAL} (mono 22.05 kHz, from x/y/z), {@link #DIRECT_STEREO} (44.1 kHz,
      *             the player has its screen open) or {@link #DIRECT_MONO} (22.05 kHz, the phone in the player's pocket)
-     * @param vm    the sound source: the machine itself, or a speaker playing its sound (one stream each)
-     * @param range how far a positional sound carries, in blocks
      */
-    public record VmAudio(UUID vm, int mode, float x, float y, float z, float range, byte[] pcm) implements CustomPacketPayload {
-        /** A machine's own small speaker. */
-        public static final float DEFAULT_RANGE = 16;
+    public record VmAudio(UUID vm, int mode, float x, float y, float z, byte[] pcm) implements CustomPacketPayload {
         public static final int POSITIONAL = 0;
         public static final int DIRECT_STEREO = 1;
         public static final int DIRECT_MONO = 2;
@@ -43,11 +39,10 @@ public final class MediaPayloads {
                     buf.writeFloat(payload.x);
                     buf.writeFloat(payload.y);
                     buf.writeFloat(payload.z);
-                    buf.writeFloat(payload.range);
                     buf.writeByteArray(payload.pcm);
                 },
                 buf -> new VmAudio(UUIDUtil.STREAM_CODEC.decode(buf), buf.readByte(), buf.readFloat(), buf.readFloat(), buf.readFloat(),
-                        buf.readFloat(), buf.readByteArray(1 << 18)));
+                        buf.readByteArray(1 << 18)));
 
         @Override
         public Type<? extends CustomPacketPayload> type() {

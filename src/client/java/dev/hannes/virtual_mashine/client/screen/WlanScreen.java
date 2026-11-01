@@ -1,13 +1,12 @@
 package dev.hannes.virtual_mashine.client.screen;
 
-import net.minecraft.Util;
 import dev.hannes.virtual_mashine.network.NetPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import dev.hannes.virtual_mashine.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.UUID;
@@ -97,19 +96,12 @@ public class WlanScreen extends Screen {
         }
     }
 
-    private long lastClickAt;
-
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        MouseButtonEvent event = new MouseButtonEvent(mouseX, mouseY, button);
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         for (int i = 0; i < Math.min(MAX_ROWS, view.networks().size()); i++) {
             int y = listY + i * ROW;
             if (event.x() >= listX && event.x() < listX + listW && event.y() >= y && event.y() < y + ROW - 2) {
                 NetPayloads.WlanNetwork network = view.networks().get(i);
-                // 1.21.1 does not report double clicks: a second click on the same row within 250 ms is one.
-                long now = Util.getMillis();
-                boolean doubleClick = network.ssid().equals(selected) && now - lastClickAt < 250;
-                lastClickAt = now;
                 selected = network.ssid();
                 if (!network.secured()) {
                     passwordBox.setValue("");
@@ -121,13 +113,13 @@ public class WlanScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(event, doubleClick);
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
-        super.render(graphics, mouseX, mouseY, a);
-        graphics.drawCenteredString(font, Component.translatable("virtual_mashine.wlan.heading", view.deviceName()), width / 2, 14, WHITE);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractRenderState(graphics, mouseX, mouseY, a);
+        graphics.centeredText(font, Component.translatable("virtual_mashine.wlan.heading", view.deviceName()), width / 2, 14, WHITE);
         Component status;
         int statusColor;
         if (!view.powered()) {
@@ -143,10 +135,10 @@ public class WlanScreen extends Screen {
             status = Component.translatable("virtual_mashine.wlan.status.none");
             statusColor = GRAY;
         }
-        graphics.drawCenteredString(font, status, width / 2, 28, statusColor);
+        graphics.centeredText(font, status, width / 2, 28, statusColor);
 
         if (view.networks().isEmpty()) {
-            graphics.drawCenteredString(font, Component.translatable("virtual_mashine.wlan.empty"), width / 2, listY + 20, GRAY);
+            graphics.centeredText(font, Component.translatable("virtual_mashine.wlan.empty"), width / 2, listY + 20, GRAY);
         }
         for (int i = 0; i < Math.min(MAX_ROWS, view.networks().size()); i++) {
             NetPayloads.WlanNetwork network = view.networks().get(i);
@@ -155,17 +147,17 @@ public class WlanScreen extends Screen {
             int background = network.ssid().equals(selected) ? 0xFF3A5A80 : hover ? 0xFF3A3D42 : 0xFF2B2D31;
             graphics.fill(listX, y, listX + listW, y + ROW - 2, background);
             bars(graphics, listX + 6, y + 4, network.dbm());
-            graphics.drawString(font, network.ssid(), listX + 30, y + 5, network.connected() ? GREEN : WHITE, false);
-            graphics.drawString(font, network.secured() ? network.dbm() + " dBm  WPA2" : network.dbm() + " dBm",
+            graphics.text(font, network.ssid(), listX + 30, y + 5, network.connected() ? GREEN : WHITE, false);
+            graphics.text(font, network.secured() ? network.dbm() + " dBm  WPA2" : network.dbm() + " dBm",
                     listX + listW - 6 - font.width(network.secured() ? network.dbm() + " dBm  WPA2" : network.dbm() + " dBm"), y + 5, GRAY, false);
         }
         if (!message.isEmpty() && System.currentTimeMillis() - messageAt < 5000) {
-            graphics.drawCenteredString(font, Component.translatable(message), width / 2, listY + MAX_ROWS * ROW + 82, YELLOW);
+            graphics.centeredText(font, Component.translatable(message), width / 2, listY + MAX_ROWS * ROW + 82, YELLOW);
         }
     }
 
     /** Signal strength as four bars. */
-    private static void bars(GuiGraphics graphics, int x, int y, int dbm) {
+    private static void bars(GuiGraphicsExtractor graphics, int x, int y, int dbm) {
         int strength = dbm >= -55 ? 4 : dbm >= -65 ? 3 : dbm >= -72 ? 2 : dbm >= -80 ? 1 : 0;
         for (int i = 0; i < 4; i++) {
             int h = 3 + i * 3;

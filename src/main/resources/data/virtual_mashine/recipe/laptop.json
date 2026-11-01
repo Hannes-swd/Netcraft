@@ -7,10 +7,10 @@
     "CCC"
   ],
   "key": {
-    "I": {"item": "minecraft:iron_ingot"},
-    "G": {"item": "minecraft:glass_pane"},
-    "R": {"item": "minecraft:redstone"},
-    "C": {"item": "minecraft:comparator"}
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:glass_pane",
+    "R": "minecraft:redstone",
+    "C": "minecraft:comparator"
   },
   "result": {
     "id": "virtual_mashine:laptop",

@@ -6,9 +6,9 @@
     "NCN"
   ],
   "key": {
-    "S": {"item": "minecraft:string"},
-    "C": {"item": "minecraft:copper_ingot"},
-    "N": {"item": "minecraft:iron_nugget"}
+    "S": "minecraft:string",
+    "C": "minecraft:copper_ingot",
+    "N": "minecraft:iron_nugget"
   },
   "result": {
     "id": "virtual_mashine:cat6a_cable",

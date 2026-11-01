@@ -13,7 +13,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -22,7 +21,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -73,12 +71,6 @@ public class DeviceBlock extends BaseEntityBlock {
         return shape;
     }
 
-    /** Block entity blocks are invisible by default in 1.21.1; devices draw their model like any block. */
-    @Override
-    protected RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
-    }
-
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new DeviceBlockEntity(pos, state);
@@ -90,16 +82,16 @@ public class DeviceBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
-                                              InteractionHand hand, BlockHitResult hitResult) {
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                          InteractionHand hand, BlockHitResult hitResult) {
         boolean tester = stack.getItem() instanceof NetworkTesterItem;
         if (!(stack.getItem() instanceof CableItem) && !tester) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            return InteractionResult.TRY_WITH_EMPTY_HAND;
         }
         if (player instanceof ServerPlayer serverPlayer) {
             openPorts(serverPlayer, level, pos, state, tester);
         }
-        return ItemInteractionResult.SUCCESS;
+        return InteractionResult.SUCCESS;
     }
 
     @Override
@@ -118,18 +110,12 @@ public class DeviceBlock extends BaseEntityBlock {
                 manager.network().openApView(serverPlayer, device.getOrCreatePcId(), pos, state.getValue(FACING), "");
             } else if (type == DeviceType.IO_MODULE && !player.isShiftKeyDown()) {
                 manager.network().openIoView(serverPlayer, device.getOrCreatePcId(), pos, state.getValue(FACING), "");
-            } else if (type == DeviceType.SPEAKER && !player.isShiftKeyDown()) {
-                // The volume knob; sneaking opens the sockets instead.
-                UUID id = device.getOrCreatePcId();
-                manager.network().setSpeakerVolume(id, device.speakerVolume());
-                manager.network().setSpeakerChannel(id, device.speakerChannel());
-                manager.network().openSpeakerView(serverPlayer, id, pos);
             } else if (type == DeviceType.HDMI_SWITCH && !player.isShiftKeyDown()) {
                 // The slide switch on the housing; sneaking opens the sockets instead.
                 device.setHdmiMirrored(!device.hdmiMirrored());
                 manager.network().setHdmiMirrored(device.getOrCreatePcId(), device.hdmiMirrored());
-                serverPlayer.displayClientMessage(net.minecraft.network.chat.Component.translatable(device.hdmiMirrored()
-                        ? "virtual_mashine.hdmi_switch.mirror" : "virtual_mashine.hdmi_switch.extend"), true);
+                serverPlayer.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(device.hdmiMirrored()
+                        ? "virtual_mashine.hdmi_switch.mirror" : "virtual_mashine.hdmi_switch.extend"));
             } else if (type.isUsbDevice() && !player.isShiftKeyDown()) {
                 // The switch on a microphone or camera; sneaking opens its USB socket instead.
                 UUID id = device.getOrCreatePcId();
@@ -148,21 +134,12 @@ public class DeviceBlock extends BaseEntityBlock {
                     device.setUsbEnabled(!device.usbEnabled());
                 }
                 manager.network().setUsbEnabled(id, device.usbEnabled());
-                serverPlayer.displayClientMessage(manager.network().media().usbStatus(id, type), true);
+                serverPlayer.sendOverlayMessage(manager.network().media().usbStatus(id, type));
             } else {
                 openPorts(serverPlayer, level, pos, state, false);
             }
         }
         return InteractionResult.SUCCESS;
-    }
-
-    /** Cables fall off and the machine is stopped when the block is broken or replaced. */
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof DeviceBlockEntity device) {
-            device.onBlockRemoved(pos);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     private void openPorts(ServerPlayer player, Level level, BlockPos pos, BlockState state, boolean tester) {

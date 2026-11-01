@@ -2,7 +2,7 @@ package dev.hannes.virtual_mashine.client.screen;
 
 import dev.hannes.virtual_mashine.network.NetPayloads;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -78,23 +78,23 @@ public class AccessPointScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float a) {
-        super.render(graphics, mouseX, mouseY, a);
-        graphics.drawCenteredString(font, Component.translatable("virtual_mashine.ap.heading", view.deviceName()), width / 2, 16, WHITE);
-        graphics.drawCenteredString(font, Component.translatable("virtual_mashine.ap.hint"), width / 2, 30, GRAY);
-        graphics.drawString(font, Component.translatable("virtual_mashine.ap.ssid"), left, 52, WHITE);
-        graphics.drawString(font, Component.translatable("virtual_mashine.ap.password"), left, 78, WHITE);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractRenderState(graphics, mouseX, mouseY, a);
+        graphics.centeredText(font, Component.translatable("virtual_mashine.ap.heading", view.deviceName()), width / 2, 16, WHITE);
+        graphics.centeredText(font, Component.translatable("virtual_mashine.ap.hint"), width / 2, 30, GRAY);
+        graphics.text(font, Component.translatable("virtual_mashine.ap.ssid"), left, 52, WHITE);
+        graphics.text(font, Component.translatable("virtual_mashine.ap.password"), left, 78, WHITE);
         int y = 128;
-        graphics.drawString(font, Component.translatable("virtual_mashine.ap.clients", view.clients().size()), left, y, WHITE);
+        graphics.text(font, Component.translatable("virtual_mashine.ap.clients", view.clients().size()), left, y, WHITE);
         y += 12;
         if (view.clients().isEmpty()) {
-            graphics.drawString(font, Component.translatable("virtual_mashine.ap.no_clients"), left + 6, y, GRAY);
+            graphics.text(font, Component.translatable("virtual_mashine.ap.no_clients"), left + 6, y, GRAY);
         }
         for (int i = 0; i < Math.min(8, view.clients().size()); i++) {
-            graphics.drawString(font, view.clients().get(i), left + 6, y + i * 11, GREEN);
+            graphics.text(font, view.clients().get(i), left + 6, y + i * 11, GREEN);
         }
         if (!message.isEmpty() && System.currentTimeMillis() - messageAt < 5000) {
-            graphics.drawCenteredString(font, Component.translatable(message), width / 2, height - 24, YELLOW);
+            graphics.centeredText(font, Component.translatable(message), width / 2, height - 24, YELLOW);
         }
     }
 

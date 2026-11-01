@@ -6,9 +6,9 @@
     "RCR"
   ],
   "key": {
-    "I": {"item": "minecraft:iron_ingot"},
-    "R": {"item": "minecraft:redstone"},
-    "C": {"item": "minecraft:comparator"}
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:redstone",
+    "C": "minecraft:comparator"
   },
   "result": {
     "id": "virtual_mashine:managed_switch",

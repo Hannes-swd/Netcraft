@@ -5,8 +5,8 @@
     "SCS"
   ],
   "key": {
-    "S": {"item": "minecraft:string"},
-    "C": {"item": "minecraft:copper_ingot"}
+    "S": "minecraft:string",
+    "C": "minecraft:copper_ingot"
   },
   "result": {
     "id": "virtual_mashine:cat5e_cable",
