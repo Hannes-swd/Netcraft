@@ -1,0 +1,35 @@
+{
+  "owner": "Hannes-swd",
+  "repo": "Hannes-swd/Network-Simulation",
+  "visibility": "public",
+  "jdk": "C:\\Program Files\\Eclipse Adoptium\\jdk-25.0.3.9-hotspot",
+  "buildRoot": "%LOCALAPPDATA%\\netcraft-modtool\\build",
+  "outputDir": "C:\\Users\\hanne\\OneDrive\\Dokumente\\Mc Mods\\Releases",
+  "mods": [
+    {
+      "id": "virtual_mashine",
+      "name": "Netcraft",
+      "tag": "netcraft",
+      "branchPrefix": "",
+      "repo": "Hannes-swd/Network-Simulation",
+      "dependsOn": [],
+      "variants": [
+        { "mc": "1.21.1", "path": "virtual mashine 1.21.1", "branch": "mc-1.21.1" },
+        { "mc": "26.1", "path": "virtual mashine", "branch": "main" }
+      ]
+    },
+    {
+      "id": "netcraft_pc_builder",
+      "name": "Netcraft: PC Builder",
+      "tag": "pc-builder",
+      "branchPrefix": "pc-builder/",
+      "repo": "Hannes-swd/Network-Simulation",
+      "dependsOn": [
+        { "mod": "virtual_mashine", "property": "netcraft_version" }
+      ],
+      "variants": [
+        { "mc": "1.21.1", "path": "netcraft pc builder 1.21.1", "branch": "pc-builder/mc-1.21.1" }
+      ]
+    }
+  ]
+}
