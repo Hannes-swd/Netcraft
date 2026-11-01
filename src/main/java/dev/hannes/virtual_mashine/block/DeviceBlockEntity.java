@@ -48,6 +48,10 @@ public class DeviceBlockEntity extends BlockEntity {
     private int micMode;
     /** HDMI switch: the same picture on all outputs instead of a screen of its own each. */
     private boolean hdmiMirrored;
+    /** Speaker: the volume knob in percent. */
+    private int speakerVolume = dev.hannes.virtual_mashine.net.NetworkManager.SPEAKER_DEFAULT_VOLUME;
+    /** Speaker: mono, left or right channel. */
+    private int speakerChannel;
 
     public DeviceBlockEntity(BlockPos pos, BlockState state) {
         super(ModRegistry.DEVICE_BLOCK_ENTITY, pos, state);
@@ -119,6 +123,24 @@ public class DeviceBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    public int speakerVolume() {
+        return speakerVolume;
+    }
+
+    public int speakerChannel() {
+        return speakerChannel;
+    }
+
+    public void setSpeakerChannel(int channel) {
+        speakerChannel = channel;
+        setChanged();
+    }
+
+    public void setSpeakerVolume(int percent) {
+        speakerVolume = percent;
+        setChanged();
+    }
+
     public void setUsbEnabled(boolean enabled) {
         usbEnabled = enabled;
         setChanged();
@@ -177,6 +199,10 @@ public class DeviceBlockEntity extends BlockEntity {
             if (block.deviceType() == DeviceType.HDMI_SWITCH) {
                 manager.network().setHdmiMirrored(device.pcId, device.hdmiMirrored);
             }
+            if (block.deviceType() == DeviceType.SPEAKER) {
+                manager.network().setSpeakerVolume(device.pcId, device.speakerVolume);
+                manager.network().setSpeakerChannel(device.pcId, device.speakerChannel);
+            }
         }
         boolean powered = manager.network().isPowered(device.pcId, block.deviceType());
         if (state.getValue(DeviceBlock.LIT) != powered) {
@@ -229,6 +255,8 @@ public class DeviceBlockEntity extends BlockEntity {
         usbEnabled = !tag.contains("usb_enabled") || tag.getBoolean("usb_enabled");
         hdmiMirrored = tag.getBoolean("hdmi_mirrored");
         micMode = tag.getInt("mic_mode");
+        speakerVolume = tag.contains("speaker_volume") ? tag.getInt("speaker_volume") : dev.hannes.virtual_mashine.net.NetworkManager.SPEAKER_DEFAULT_VOLUME;
+        speakerChannel = tag.getInt("speaker_channel");
     }
 
     @Override
@@ -250,6 +278,8 @@ public class DeviceBlockEntity extends BlockEntity {
         tag.putBoolean("usb_enabled", usbEnabled);
         tag.putBoolean("hdmi_mirrored", hdmiMirrored);
         tag.putInt("mic_mode", micMode);
+        tag.putInt("speaker_volume", speakerVolume);
+        tag.putInt("speaker_channel", speakerChannel);
     }
 
     @Override

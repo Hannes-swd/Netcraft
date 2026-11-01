@@ -59,7 +59,7 @@ public final class ModRegistry {
     public static final Map<CableType, Item> CABLES = new EnumMap<>(CableType.class);
 
     public static final Block PC_BLOCK = device(DeviceType.PC, Shapes.or(Block.box(0, 0, 0, 16, 5, 16), Block.box(2, 5, 2, 14, 15, 14)), MapColor.SAND, 7);
-    public static final Block SERVER_BLOCK = device(DeviceType.SERVER, Block.box(2, 0, 2, 14, 15, 14), MapColor.COLOR_GRAY, 3);
+    public static final Block SERVER_BLOCK = device(DeviceType.SERVER, Block.box(0, 0, 0, 16, 16, 16), MapColor.COLOR_GRAY, 3);
     public static final Block ROUTER_BLOCK = device(DeviceType.ROUTER, Block.box(2, 0, 2, 14, 3, 14), MapColor.COLOR_BLACK, 3);
     public static final Block MANAGED_SWITCH_BLOCK = device(DeviceType.MANAGED_SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.COLOR_BLUE, 3);
     public static final Block SWITCH_BLOCK = device(DeviceType.SWITCH, Block.box(0, 0, 0, 16, 4, 16), MapColor.METAL, 3);
@@ -75,6 +75,7 @@ public final class ModRegistry {
             Shapes.or(Block.box(6, 0, 6, 10, 3, 10), Block.box(4, 3, 4, 12, 9, 12)), MapColor.COLOR_BLACK, 1);
     public static final Block HDMI_SWITCH_BLOCK = device(DeviceType.HDMI_SWITCH, Block.box(3, 0, 4, 13, 3, 12), MapColor.COLOR_BLACK, 1);
     public static final Block USB_HUB_BLOCK = device(DeviceType.USB_HUB, Block.box(4, 0, 5, 12, 2, 11), MapColor.COLOR_GRAY, 1);
+    public static final Block SPEAKER_BLOCK = device(DeviceType.SPEAKER, Block.box(4, 0, 4, 12, 14, 12), MapColor.COLOR_BLACK, 1);
 
     public static final Item PC_ITEM = DEVICE_ITEMS.get(DeviceType.PC);
 
@@ -126,7 +127,8 @@ public final class ModRegistry {
     public static void register() {
         tab("devices", DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.PC), DEVICE_ITEMS.get(DeviceType.LAPTOP),
                 PHONE, DEVICE_ITEMS.get(DeviceType.SERVER), DEVICE_ITEMS.get(DeviceType.DISPLAY), DEVICE_ITEMS.get(DeviceType.HDMI_SWITCH),
-                DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA));
+                DEVICE_ITEMS.get(DeviceType.USB_HUB), DEVICE_ITEMS.get(DeviceType.MICROPHONE), DEVICE_ITEMS.get(DeviceType.CAMERA),
+                DEVICE_ITEMS.get(DeviceType.SPEAKER));
         tab("network_devices", DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.SWITCH), DEVICE_ITEMS.get(DeviceType.HUB),
                 DEVICE_ITEMS.get(DeviceType.MANAGED_SWITCH), DEVICE_ITEMS.get(DeviceType.ROUTER), DEVICE_ITEMS.get(DeviceType.ACCESS_POINT), RACK);
         tab("internet", DEVICE_ITEMS.get(DeviceType.MODEM), DEVICE_ITEMS.get(DeviceType.MODEM));

@@ -42,6 +42,7 @@ public class PcDisplayScreen extends PcScreen {
     private static final SystemToast.SystemToastId MESSAGE_TOAST = new SystemToast.SystemToastId(8000L);
 
     private final VmScreenTexture texture = new VmScreenTexture();
+    private final GuestCursor guestCursor = new GuestCursor();
     private final VncKeyboard keyboard = new VncKeyboard();
     /** Which screen of the graphics card is shown. */
     private int head;
@@ -315,6 +316,7 @@ public class PcDisplayScreen extends PcScreen {
         RfbClient vnc = client;
         if (vnc != null) {
             texture.update(vnc);
+            guestCursor.update(vnc);
         }
         layoutView();
         if (texture.ready() && vnc != null) {
@@ -322,6 +324,9 @@ public class PcDisplayScreen extends PcScreen {
             texture.draw(graphics, viewX, viewY, viewW, viewH, magnified);
             if (captured) {
                 graphics.renderOutline(viewX - 1, viewY - 1, viewW + 2, viewH + 2, 0xFF3C8DFF);
+                if (isOverView(mouseX, mouseY)) {
+                    guestCursor.draw(graphics, mouseX, mouseY, (double) viewW / texture.width());
+                }
             }
         }
 
@@ -550,6 +555,7 @@ public class PcDisplayScreen extends PcScreen {
             client = null;
         }
         texture.close();
+        guestCursor.close();
         super.removed();
     }
 }

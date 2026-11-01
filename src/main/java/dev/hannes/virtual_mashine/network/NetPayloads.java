@@ -451,4 +451,42 @@ public final class NetPayloads {
             return TYPE;
         }
     }
+
+    /** Server to client: open (or refresh) the volume knob of a speaker. */
+    public record SpeakerView(UUID speaker, BlockPos pos, int volume, int channel, String source, boolean playing) implements CustomPacketPayload {
+        public static final Type<SpeakerView> TYPE = new Type<>(Virtual_mashine.id("speaker_view"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, SpeakerView> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    UUIDUtil.STREAM_CODEC.encode(buf, payload.speaker);
+                    buf.writeBlockPos(payload.pos);
+                    buf.writeVarInt(payload.volume);
+                    buf.writeByte(payload.channel);
+                    buf.writeUtf(payload.source, 128);
+                    buf.writeBoolean(payload.playing);
+                },
+                buf -> new SpeakerView(UUIDUtil.STREAM_CODEC.decode(buf), buf.readBlockPos(), buf.readVarInt(), buf.readByte(), buf.readUtf(128), buf.readBoolean()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
+    /** Client to server: the volume knob of a speaker was turned (percent). */
+    public record SpeakerAction(UUID speaker, BlockPos pos, int volume, int channel) implements CustomPacketPayload {
+        public static final Type<SpeakerAction> TYPE = new Type<>(Virtual_mashine.id("speaker_action"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, SpeakerAction> CODEC = StreamCodec.ofMember(
+                (payload, buf) -> {
+                    UUIDUtil.STREAM_CODEC.encode(buf, payload.speaker);
+                    buf.writeBlockPos(payload.pos);
+                    buf.writeVarInt(payload.volume);
+                    buf.writeByte(payload.channel);
+                },
+                buf -> new SpeakerAction(UUIDUtil.STREAM_CODEC.decode(buf), buf.readBlockPos(), buf.readVarInt(), buf.readByte()));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
 }

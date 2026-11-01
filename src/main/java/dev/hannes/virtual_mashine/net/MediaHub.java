@@ -55,7 +55,11 @@ public final class MediaHub {
     /** A player this close to a camera films it with their game. */
     static final double CAMERA_RANGE = 64;
 
-    private record Hearer(ServerPlayer player, int mode, float x, float y, float z) {
+    /** @param emitter the machine itself or the speaker playing its sound */
+    private record Hearer(ServerPlayer player, UUID emitter, int mode, float x, float y, float z, float range, int channel) {
+        Hearer(ServerPlayer player, UUID emitter, int mode, float x, float y, float z) {
+            this(player, emitter, mode, x, y, z, MediaPayloads.VmAudio.DEFAULT_RANGE, NetworkManager.CHANNEL_MONO);
+        }
     }
 
     private record MicTarget(UUID mic, UUID host, float gain, String name) {
@@ -110,6 +114,25 @@ public final class MediaHub {
 
     private void updateHearers() {
         Map<UUID, List<Hearer>> next = new HashMap<>();
+        // Speakers: every one fed by a running machine is a sound source of its own, as far as its volume carries.
+        Map<UUID, List<Hearer>> fromSpeakers = new HashMap<>();
+        for (UUID speaker : network.devicesOfType(DeviceType.SPEAKER)) {
+            NetworkManager.Placed placed = network.placed(speaker);
+            UUID source = network.audioSource(speaker);
+            int volume = network.speakerVolume(speaker);
+            if (placed == null || source == null || volume <= 0 || vms.runningMachine(source) == null) {
+                continue;
+            }
+            double range = NetworkManager.speakerRange(volume);
+            Vec3 centre = Vec3.atCenterOf(placed.pos());
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (inRange(player, placed, centre, range) && !source.equals(focus.get(player.getUUID()))) {
+                    fromSpeakers.computeIfAbsent(source, key -> new ArrayList<>()).add(new Hearer(player, speaker,
+                            MediaPayloads.VmAudio.POSITIONAL, (float) centre.x, (float) centre.y, (float) centre.z, (float) range,
+                            network.speakerChannel(speaker)));
+                }
+            }
+        }
         for (VirtualMachine vm : vms.runningMachines()) {
             if (!vm.hasSoundTap()) {
                 continue;
@@ -119,16 +142,17 @@ public final class MediaHub {
             List<Hearer> list = new ArrayList<>();
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 if (vm.id().equals(focus.get(player.getUUID()))) {
-                    list.add(new Hearer(player, MediaPayloads.VmAudio.DIRECT_STEREO, 0, 0, 0));
+                    list.add(new Hearer(player, vm.id(), MediaPayloads.VmAudio.DIRECT_STEREO, 0, 0, 0));
                 } else if (player.getUUID().equals(carrier)) {
-                    list.add(new Hearer(player, MediaPayloads.VmAudio.DIRECT_MONO, 0, 0, 0));
+                    list.add(new Hearer(player, vm.id(), MediaPayloads.VmAudio.DIRECT_MONO, 0, 0, 0));
                 } else if (placed != null && carrier == null && placed.dimension().equals(NetworkManager.dimensionOf(player.level()))) {
                     Vec3 centre = Vec3.atCenterOf(placed.pos());
                     if (player.getEyePosition().distanceToSqr(centre) <= HEAR_RANGE * HEAR_RANGE) {
-                        list.add(new Hearer(player, MediaPayloads.VmAudio.POSITIONAL, (float) centre.x, (float) centre.y, (float) centre.z));
+                        list.add(new Hearer(player, vm.id(), MediaPayloads.VmAudio.POSITIONAL, (float) centre.x, (float) centre.y, (float) centre.z));
                     }
                 }
             }
+            list.addAll(fromSpeakers.getOrDefault(vm.id(), List.of()));
             if (!list.isEmpty()) {
                 next.put(vm.id(), List.copyOf(list));
             }
@@ -427,29 +451,35 @@ public final class MediaHub {
         if (list == null) {
             return;
         }
-        byte[] mono = null;
+        byte[][] mixes = new byte[3][]; // mono, left only, right only
         for (Hearer hearer : list) {
             byte[] data;
             if (hearer.mode == MediaPayloads.VmAudio.DIRECT_STEREO) {
                 data = pcm;
             } else {
-                if (mono == null) {
-                    mono = downmix(pcm);
+                if (mixes[hearer.channel] == null) {
+                    mixes[hearer.channel] = downmix(pcm, hearer.channel);
                 }
-                data = mono;
+                data = mixes[hearer.channel];
             }
-            ServerPlayNetworking.send(hearer.player, new MediaPayloads.VmAudio(vm, hearer.mode, hearer.x, hearer.y, hearer.z, data));
+            ServerPlayNetworking.send(hearer.player, new MediaPayloads.VmAudio(hearer.emitter, hearer.mode, hearer.x, hearer.y, hearer.z,
+                    hearer.range, data));
         }
     }
 
     /** 44.1 kHz stereo to 22.05 kHz mono: half the rate is plenty for sound coming out of a box in the world. */
-    private static byte[] downmix(byte[] stereo) {
+    private static byte[] downmix(byte[] stereo, int channel) {
         ByteBuffer in = ByteBuffer.wrap(stereo).order(ByteOrder.LITTLE_ENDIAN);
         int pairs = stereo.length / 8;
         ByteBuffer out = ByteBuffer.allocate(pairs * 2).order(ByteOrder.LITTLE_ENDIAN);
         for (int i = 0; i < pairs; i++) {
-            int sum = in.getShort() + in.getShort() + in.getShort() + in.getShort();
-            out.putShort((short) (sum / 4));
+            int l0 = in.getShort(), r0 = in.getShort(), l1 = in.getShort(), r1 = in.getShort();
+            int value = switch (channel) {
+                case NetworkManager.CHANNEL_LEFT -> (l0 + l1) / 2;
+                case NetworkManager.CHANNEL_RIGHT -> (r0 + r1) / 2;
+                default -> (l0 + r0 + l1 + r1) / 4;
+            };
+            out.putShort((short) value);
         }
         return out.array();
     }

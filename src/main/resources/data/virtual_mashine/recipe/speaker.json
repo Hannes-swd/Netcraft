@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "IWI",
+    "INI",
+    "IRI"
+  ],
+  "key": {
+    "I": {"item": "minecraft:iron_ingot"},
+    "W": {"tag": "minecraft:wool"},
+    "N": {"item": "minecraft:note_block"},
+    "R": {"item": "minecraft:redstone"}
+  },
+  "result": {
+    "id": "virtual_mashine:speaker",
+    "count": 1
+  }
+}

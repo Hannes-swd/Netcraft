@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "NCN",
+    " D "
+  ],
+  "key": {
+    "N": {"item": "minecraft:iron_nugget"},
+    "C": {"item": "minecraft:copper_ingot"},
+    "D": {"item": "minecraft:green_dye"}
+  },
+  "result": {
+    "id": "virtual_mashine:audio_cable",
+    "count": 2
+  }
+}

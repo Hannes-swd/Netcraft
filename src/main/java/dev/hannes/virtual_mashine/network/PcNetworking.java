@@ -23,6 +23,8 @@ public final class PcNetworking {
         PayloadTypeRegistry.playC2S().register(NetPayloads.PortAction.TYPE, NetPayloads.PortAction.CODEC);
         PayloadTypeRegistry.playS2C().register(NetPayloads.ClipView.TYPE, NetPayloads.ClipView.CODEC);
         PayloadTypeRegistry.playC2S().register(NetPayloads.ClipAction.TYPE, NetPayloads.ClipAction.CODEC);
+        PayloadTypeRegistry.playS2C().register(NetPayloads.SpeakerView.TYPE, NetPayloads.SpeakerView.CODEC);
+        PayloadTypeRegistry.playC2S().register(NetPayloads.SpeakerAction.TYPE, NetPayloads.SpeakerAction.CODEC);
         PayloadTypeRegistry.playS2C().register(NetPayloads.WlanView.TYPE, NetPayloads.WlanView.CODEC);
         PayloadTypeRegistry.playS2C().register(NetPayloads.ApView.TYPE, NetPayloads.ApView.CODEC);
         PayloadTypeRegistry.playC2S().register(NetPayloads.WlanAction.TYPE, NetPayloads.WlanAction.CODEC);
@@ -90,6 +92,12 @@ public final class PcNetworking {
             VmManager manager = VmManager.get();
             if (manager != null) {
                 manager.network().handleClipAction(context.player(), payload);
+            }
+        });
+        ServerPlayNetworking.registerGlobalReceiver(NetPayloads.SpeakerAction.TYPE, (payload, context) -> {
+            VmManager manager = VmManager.get();
+            if (manager != null) {
+                manager.network().handleSpeakerAction(context.player(), payload);
             }
         });
 

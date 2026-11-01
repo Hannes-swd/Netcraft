@@ -169,6 +169,10 @@ public class PortScreen extends Screen {
             drawUsbSocket(graphics, x, y, port, hover);
             return;
         }
+        if (isAudio(index)) {
+            drawAudioSocket(graphics, x, y, port, hover);
+            return;
+        }
         if (isHdmi(index)) {
             drawHdmiSocket(graphics, x, y, port, hover);
             return;
@@ -201,6 +205,26 @@ public class PortScreen extends Screen {
 
     private boolean isUsb(int index) {
         return DeviceType.byId(view.deviceType()).isUsbPort(index);
+    }
+
+    private boolean isAudio(int index) {
+        return DeviceType.byId(view.deviceType()).isAudioPort(index);
+    }
+
+    /** A 3.5 mm jack: a round hole with a green ring (line out / audio). */
+    private void drawAudioSocket(GuiGraphics graphics, int x, int y, NetPayloads.PortInfo port, boolean hover) {
+        graphics.fill(x, y, x + socketWidth, y + SOCKET_H, hover ? 0xFF5C5F66 : 0xFF3C3E43);
+        int cx = x + socketWidth / 2;
+        int cy = y + SOCKET_H / 2;
+        graphics.fill(cx - 6, cy - 5, cx + 6, cy + 5, 0xFF3DAA4F);
+        graphics.fill(cx - 5, cy - 6, cx + 5, cy + 6, 0xFF3DAA4F);
+        graphics.fill(cx - 3, cy - 3, cx + 3, cy + 3, 0xFF101114);
+        if (port.state() != NetPayloads.PortInfo.FREE) {
+            graphics.fill(cx - 4, cy - 4, cx + 4, cy + 4, 0xFF000000 | port.color());
+            graphics.fill(cx - 1, cy - 1, cx + 1, cy + 1, 0xFFB8BCC2);
+        }
+        String name = port.name();
+        graphics.drawString(font, name, x + (socketWidth - font.width(name)) / 2, y + SOCKET_H + 3, port.link() ? GREEN : GRAY, false);
     }
 
     private boolean isHdmi(int index) {
@@ -244,13 +268,15 @@ public class PortScreen extends Screen {
 
     private List<Component> tooltip(int index) {
         NetPayloads.PortInfo port = view.ports().get(index);
-        if (!isUsb(index) && !isHdmi(index)) {
+        if (!isUsb(index) && !isHdmi(index) && !isAudio(index)) {
             return tooltip(port);
         }
         DeviceType type = DeviceType.byId(view.deviceType());
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal(port.name()));
-        if (isHdmi(index)) {
+        if (isAudio(index)) {
+            lines.add(Component.translatable(type.isAudioOutput(index) ? "virtual_mashine.ports.tip.audio_out" : "virtual_mashine.ports.tip.audio_in"));
+        } else if (isHdmi(index)) {
             lines.add(Component.translatable(type.isHdmiOutput(index) ? "virtual_mashine.ports.tip.hdmi_out" : "virtual_mashine.ports.tip.hdmi_in"));
         } else {
             lines.add(Component.translatable(type.isUsbUpstream(index) ? "virtual_mashine.ports.tip.usb_up" : "virtual_mashine.ports.tip.usb"));
@@ -258,7 +284,9 @@ public class PortScreen extends Screen {
         switch (port.state()) {
             case NetPayloads.PortInfo.CONNECTED -> {
                 lines.add(Component.translatable("virtual_mashine.ports.tip.connected", port.peer()));
-                if (isHdmi(index)) {
+                if (isAudio(index)) {
+                    lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.sound" : "virtual_mashine.ports.tip.no_sound"));
+                } else if (isHdmi(index)) {
                     lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.picture" : "virtual_mashine.ports.tip.no_picture"));
                 } else {
                     lines.add(Component.translatable(port.link() ? "virtual_mashine.ports.tip.link" : "virtual_mashine.ports.tip.no_link"));

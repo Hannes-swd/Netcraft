@@ -29,7 +29,7 @@ public final class RackRenderer implements BlockEntityRenderer<RackBlockEntity> 
                     .setValue(DeviceBlock.LIT, slot.lit);
             poseStack.pushPose();
             poseStack.translate(0.5F, (float) slot.rackY(), 0.5F);
-            poseStack.scale(scale, 1.0F, scale);
+            poseStack.scale(scale, (float) DeviceGeometry.rackScaleY(slot.type), scale);
             poseStack.translate(-0.5F, 0.0F, -0.5F);
             Minecraft.getInstance().getBlockRenderer().renderSingleBlock(device, poseStack, buffers, packedLight, packedOverlay);
             DeviceLedRenderer.renderLeds(slot.type, facing, slot.link, slot.activity, poseStack, buffers);

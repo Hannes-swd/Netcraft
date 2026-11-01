@@ -99,6 +99,10 @@ public final class NetworkManager {
     private final Map<UUID, MicMode> micModes = new ConcurrentHashMap<>();
     /** HDMI switches set to show one picture on all outputs (kept by the block). */
     private final Set<UUID> hdmiMirrored = ConcurrentHashMap.newKeySet();
+    /** Volume knob of each speaker in percent (kept by the block). */
+    private final Map<UUID, Integer> speakerVolumes = new ConcurrentHashMap<>();
+    /** Which side of a stereo signal each speaker plays: {@link #CHANNEL_MONO}, {@link #CHANNEL_LEFT}, {@link #CHANNEL_RIGHT}. */
+    private final Map<UUID, Integer> speakerChannels = new ConcurrentHashMap<>();
     private volatile VideoRouting video = VideoRouting.EMPTY;
     private int ticks;
 
@@ -187,7 +191,7 @@ public final class NetworkManager {
                     vms.autoStart(id, type);
                 }
             }
-            case USB, USB_HUB, HDMI_SWITCH -> {
+            case USB, USB_HUB, HDMI_SWITCH, SPEAKER -> {
                 // Microphones and cameras are handled by the MediaHub, hubs only pass things on.
             }
         }
@@ -201,8 +205,8 @@ public final class NetworkManager {
         for (int i = 0; i < Math.min(32, type.totalPorts()); i++) {
             PortRef port = new PortRef(id, i);
             Cable cable = cableAt(port);
-            if (cable == null || type.isUsbPort(i) || type.isHdmiPort(i)) {
-                continue; // USB and HDMI sockets have no LEDs.
+            if (cable == null || type.isUsbPort(i) || type.isHdmiPort(i) || type.isAudioPort(i)) {
+                continue; // USB, HDMI and audio sockets have no LEDs.
             }
             boolean up = type.isConsolePort(i) ? consoleLink(port, cable) : fabric.hasLink(port);
             if (up) {
@@ -237,7 +241,99 @@ public final class NetworkManager {
                 UUID source = hdmiSource(id, type, 0);
                 yield devices.containsKey(id) && source != null && vms.runningMachine(source) != null;
             }
+            case SPEAKER -> {
+                UUID source = audioSource(id);
+                yield devices.containsKey(id) && source != null && vms.runningMachine(source) != null;
+            }
         };
+    }
+
+    // ---------------------------------------------------------------- speakers
+
+    /**
+     * The machine whose sound a speaker plays: what arrives at its audio input (a computer's line out,
+     * a monitor's audio out, another speaker's pass-through), otherwise what arrives over HDMI.
+     */
+    public @Nullable UUID audioSource(UUID speaker) {
+        return audioSource(speaker, DeviceType.SPEAKER, 0);
+    }
+
+    private @Nullable UUID audioSource(UUID device, DeviceType type, int depth) {
+        if (depth > 8) {
+            return null; // Speakers chained in a circle.
+        }
+        if (type == DeviceType.DISPLAY) {
+            VideoRouting.Feed feed = video.feed(device);
+            return feed != null ? feed.source() : device; // A monitor without HDMI plays its own page's sound.
+        }
+        if (type.isVm()) {
+            return device;
+        }
+        if (type != DeviceType.SPEAKER) {
+            return null;
+        }
+        PortRef input = new PortRef(device, type.audioPort(0));
+        Cable cable = cableAt(input);
+        if (cable != null && cable.cableType().isAudio()) {
+            Cable.End other = cable.otherEnd(input);
+            if (other.type().isAudioOutput(other.port)) {
+                UUID source = audioSource(other.device, other.type(), depth + 1);
+                if (source != null) {
+                    return source;
+                }
+            }
+        }
+        // A speaker fed through its pass-through also hears what its upstream speaker gets over HDMI.
+        return hdmiSource(device, type, 0);
+    }
+
+    public int speakerVolume(UUID speaker) {
+        return speakerVolumes.getOrDefault(speaker, SPEAKER_DEFAULT_VOLUME);
+    }
+
+    /** The volume knob of a speaker block (kept by the block). */
+    public void setSpeakerVolume(UUID speaker, int percent) {
+        speakerVolumes.put(speaker, Math.max(0, Math.min(100, percent)));
+    }
+
+    public static final int SPEAKER_DEFAULT_VOLUME = 50;
+    public static final int CHANNEL_MONO = 0;
+    public static final int CHANNEL_LEFT = 1;
+    public static final int CHANNEL_RIGHT = 2;
+
+    public int speakerChannel(UUID speaker) {
+        return speakerChannels.getOrDefault(speaker, CHANNEL_MONO);
+    }
+
+    public void setSpeakerChannel(UUID speaker, int channel) {
+        speakerChannels.put(speaker, channel < 0 || channel > CHANNEL_RIGHT ? CHANNEL_MONO : channel);
+    }
+
+    /** How far a speaker carries at this volume, in blocks: 4 when nearly off, 96 at full volume. */
+    public static double speakerRange(int percent) {
+        return percent <= 0 ? 0 : 4 + 92 * percent / 100.0;
+    }
+
+    public void openSpeakerView(ServerPlayer player, UUID speaker, BlockPos pos) {
+        UUID source = audioSource(speaker);
+        String name = source == null ? "" : vms.nameOf(source, devices.containsKey(source) ? devices.get(source).type : DeviceType.PC);
+        boolean playing = source != null && vms.runningMachine(source) != null;
+        ServerPlayNetworking.send(player, new NetPayloads.SpeakerView(speaker, pos.immutable(), speakerVolume(speaker), speakerChannel(speaker), name, playing));
+    }
+
+    public void handleSpeakerAction(ServerPlayer player, NetPayloads.SpeakerAction action) {
+        Placed placed = devices.get(action.speaker());
+        if (placed == null || placed.type != DeviceType.SPEAKER || !placed.pos.equals(action.pos())
+                || !placed.dimension.equals(dimensionOf(player.level()))
+                || player.distanceToSqr(Vec3.atCenterOf(action.pos())) > REACH * REACH) {
+            return;
+        }
+        setSpeakerVolume(action.speaker(), action.volume());
+        setSpeakerChannel(action.speaker(), action.channel());
+        if (player.level().getBlockEntity(action.pos()) instanceof dev.hannes.virtual_mashine.block.DeviceBlockEntity entity) {
+            entity.setSpeakerVolume(speakerVolume(action.speaker()));
+            entity.setSpeakerChannel(speakerChannel(action.speaker()));
+        }
     }
 
     // ---------------------------------------------------------------- USB devices
@@ -362,6 +458,8 @@ public final class NetworkManager {
         devices.remove(id);
         hdmiMirrored.remove(id);
         micModes.remove(id);
+        speakerVolumes.remove(id);
+        speakerChannels.remove(id);
         IoHost io = ioHosts.remove(id);
         if (io != null) {
             fabric.detachHost(new PortRef(id, 0));
@@ -572,6 +670,14 @@ public final class NetworkManager {
         return source != null && vms.runningMachine(source) != null;
     }
 
+    /** An audio cable carries sound while the machine at its source end runs. */
+    private boolean audioLink(PortRef port, Cable cable) {
+        Cable.End end = cable.endAt(port);
+        Cable.End output = end.type().isAudioOutput(end.port) ? end : cable.otherEnd(port);
+        UUID source = output.type() == DeviceType.SPEAKER ? audioSource(output.device) : audioSource(output.device, output.type(), 0);
+        return source != null && vms.runningMachine(source) != null;
+    }
+
     private boolean consoleLink(PortRef port, Cable cable) {
         Cable.End other = cable.otherEnd(port);
         return vms.runningMachine(port.device()) != null && vms.runningMachine(other.device) != null;
@@ -705,8 +811,10 @@ public final class NetworkManager {
         boolean consolePort = placed.type.isConsolePort(port.port());
         boolean usbPort = placed.type.isUsbPort(port.port());
         boolean hdmiPort = placed.type.isHdmiPort(port.port());
-        if (item.cableType.isConsole() != consolePort || item.cableType.isUsb() != usbPort || item.cableType.isHdmi() != hdmiPort) {
-            return usbPort ? "virtual_mashine.ports.msg.needs_usb_cable"
+        boolean audioPort = placed.type.isAudioPort(port.port());
+        if (item.cableType.isConsole() != consolePort || item.cableType.isUsb() != usbPort || item.cableType.isHdmi() != hdmiPort
+                || item.cableType.isAudio() != audioPort) {
+            return audioPort ? "virtual_mashine.ports.msg.needs_audio_cable" : usbPort ? "virtual_mashine.ports.msg.needs_usb_cable"
                     : hdmiPort ? "virtual_mashine.ports.msg.needs_hdmi_cable"
                     : consolePort ? "virtual_mashine.ports.msg.needs_console_cable" : "virtual_mashine.ports.msg.needs_network_cable";
         }
@@ -723,7 +831,7 @@ public final class NetworkManager {
         if (!start.dimension.equals(placed.dimension)) {
             return "virtual_mashine.ports.msg.other_dimension";
         }
-        if (start.port.device().equals(port.device()) && (start.cable.isUsb() || start.cable.isHdmi())) {
+        if (start.port.device().equals(port.device()) && (start.cable.isUsb() || start.cable.isHdmi() || start.cable.isAudio())) {
             return "virtual_mashine.ports.msg.same_device";
         }
         if (start.cable.isUsb() && start.deviceType.isUsbUpstream(start.port.port()) == placed.type.isUsbUpstream(port.port())) {
@@ -731,6 +839,9 @@ public final class NetworkManager {
         }
         if (start.cable.isHdmi() && start.deviceType.isHdmiOutput(start.port.port()) == placed.type.isHdmiOutput(port.port())) {
             return "virtual_mashine.ports.msg.hdmi_pair"; // One end in a picture output, the other in a monitor or switch input.
+        }
+        if (start.cable.isAudio() && start.deviceType.isAudioOutput(start.port.port()) == placed.type.isAudioOutput(port.port())) {
+            return "virtual_mashine.ports.msg.audio_pair"; // One end in a line out, the other in a speaker input.
         }
         Cable cable = new Cable();
         cable.id = UUID.randomUUID();
@@ -909,7 +1020,7 @@ public final class NetworkManager {
             PortRef port = new PortRef(id, i);
             boolean console = type.isConsolePort(i);
             boolean usb = type.isUsbPort(i);
-            boolean hdmi = type.isHdmiPort(i);
+            boolean hdmi = type.isHdmiPort(i) || type.isAudioPort(i);
             String name = portLabel(id, type, i);
             String mac = type.isVm() && !console && !usb && !hdmi ? DeviceMac.of(id, i) : "";
             Cable cable = cableAt(port);
@@ -928,7 +1039,7 @@ public final class NetworkManager {
                 Cable.End other = cable.otherEnd(port);
                 String peer = deviceName(other.device, other.type()) + " · " + portLabel(other.device, other.type(), other.port);
                 boolean link = console ? consoleLink(port, cable) : usb ? usbLink(port, cable)
-                        : hdmi ? hdmiLink(port, cable) : fabric.hasLink(port);
+                        : type.isAudioPort(i) ? audioLink(port, cable) : hdmi ? hdmiLink(port, cable) : fabric.hasLink(port);
                 int speed = link ? cable.cableType().speedMbit(cable.length()) : 0;
                 ports.add(new NetPayloads.PortInfo(name, NetPayloads.PortInfo.CONNECTED, link, activity && link, peer, cable.type,
                         cable.color, (int) Math.round(cable.length()), console, mac, speed, rx, tx));
@@ -952,7 +1063,7 @@ public final class NetworkManager {
      */
     private String portLabel(UUID id, DeviceType type, int port) {
         String name = type.portName(port);
-        if (!type.isVm() || type.isConsolePort(port) || type.isUsbPort(port) || type.isHdmiPort(port)) {
+        if (!type.isVm() || type.isConsolePort(port) || type.isUsbPort(port) || type.isHdmiPort(port) || type.isAudioPort(port)) {
             return name;
         }
         CiscoImage cisco = vms.ciscoOf(id);
@@ -978,6 +1089,7 @@ public final class NetworkManager {
             case ACCESS_POINT -> "Access Point";
             case HDMI_SWITCH -> "HDMI-Switch";
             case USB_HUB -> "USB-Hub";
+            case SPEAKER -> "Lautsprecher";
             case IO_MODULE -> {
                 IoHost io = ioHosts.get(id);
                 if (io != null && !io.io().name().isEmpty()) {

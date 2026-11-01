@@ -118,6 +118,12 @@ public class DeviceBlock extends BaseEntityBlock {
                 manager.network().openApView(serverPlayer, device.getOrCreatePcId(), pos, state.getValue(FACING), "");
             } else if (type == DeviceType.IO_MODULE && !player.isShiftKeyDown()) {
                 manager.network().openIoView(serverPlayer, device.getOrCreatePcId(), pos, state.getValue(FACING), "");
+            } else if (type == DeviceType.SPEAKER && !player.isShiftKeyDown()) {
+                // The volume knob; sneaking opens the sockets instead.
+                UUID id = device.getOrCreatePcId();
+                manager.network().setSpeakerVolume(id, device.speakerVolume());
+                manager.network().setSpeakerChannel(id, device.speakerChannel());
+                manager.network().openSpeakerView(serverPlayer, id, pos);
             } else if (type == DeviceType.HDMI_SWITCH && !player.isShiftKeyDown()) {
                 // The slide switch on the housing; sneaking opens the sockets instead.
                 device.setHdmiMirrored(!device.hdmiMirrored());

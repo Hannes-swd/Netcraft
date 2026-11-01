@@ -14,6 +14,11 @@ public final class DeviceGeometry {
     /** Devices in a rack are drawn a little narrower, so they fit between its posts. */
     public static final double RACK_SCALE = 14.0 / 16.0;
 
+    /** How much a device is squeezed in height in a rack: the full-block server becomes a half-height unit. */
+    public static double rackScaleY(DeviceType type) {
+        return type == DeviceType.SERVER ? type.rackHeight() / 16.0 : 1.0;
+    }
+
     public static Vec3 socket(Cable.End end) {
         return socket(end.type(), end.pos(), end.direction(), end.port, end.rack);
     }
@@ -26,7 +31,7 @@ public final class DeviceGeometry {
         if (rack == null) {
             return alone.add(pos.getX(), pos.getY(), pos.getZ());
         }
-        return new Vec3(pos.getX() + 0.5 + (alone.x - 0.5) * RACK_SCALE, pos.getY() + rack + alone.y,
+        return new Vec3(pos.getX() + 0.5 + (alone.x - 0.5) * RACK_SCALE, pos.getY() + rack + alone.y * rackScaleY(type),
                 pos.getZ() + 0.5 + (alone.z - 0.5) * RACK_SCALE);
     }
 
@@ -39,7 +44,7 @@ public final class DeviceGeometry {
         if (type.isConsolePort(port) && type.portsOnFront) {
             return facing.getOpposite();
         }
-        if (type.isHdmiPort(port) || type.isUsbPort(port)) {
+        if (type.isHdmiPort(port) || type.isUsbPort(port) || type.isAudioPort(port)) {
             return facing.getOpposite();
         }
         return type.portsOnFront ? facing : facing.getOpposite();
@@ -65,6 +70,22 @@ public final class DeviceGeometry {
             } else {
                 offset = type.socketSpread / 2 - type.socketSpread * (index - 1) / 3;
             }
+        } else if (type == DeviceType.SPEAKER) {
+            // Speaker: HDMI IN, AUDIO IN and AUDIO OUT in a row low on the back.
+            offset = type.isHdmiPort(port) ? 0.12 : type.audioIndex(port) == 0 ? 0 : -0.12;
+        } else if (type.isAudioPort(port)) {
+            // Line out of computers and monitors: the green jack next to the HDMI sockets.
+            offset = switch (type) {
+                case SERVER -> 0.04;
+                case PC -> -0.06;
+                default -> -0.28;
+            };
+            y = switch (type) {
+                case PC -> type.socketY - 0.06;
+                case SERVER -> type.socketY - 0.14;
+                case DISPLAY -> type.socketY - 0.2;
+                default -> type.socketY;
+            };
         } else if (type.isHdmiPort(port)) {
             // Computers and monitors: HDMI sockets on the back, on the other side than the USB row.
             offset = -(switch (type) {

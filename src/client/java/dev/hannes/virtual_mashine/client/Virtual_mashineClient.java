@@ -40,6 +40,14 @@ public class Virtual_mashineClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.PortView.TYPE, (payload, context) -> onPortView(payload, context.client()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.CableSync.TYPE, (payload, context) -> CableRenderer.setCables(payload.cables()));
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.HeldCable.TYPE, (payload, context) -> CableRenderer.setHeld(payload));
+        ClientPlayNetworking.registerGlobalReceiver(NetPayloads.SpeakerView.TYPE, (payload, context) -> {
+            Minecraft minecraft = context.client();
+            if (minecraft.screen instanceof dev.hannes.virtual_mashine.client.screen.SpeakerScreen screen && screen.speakerPos().equals(payload.pos())) {
+                screen.update(payload);
+            } else {
+                minecraft.setScreen(new dev.hannes.virtual_mashine.client.screen.SpeakerScreen(payload));
+            }
+        });
         ClientPlayNetworking.registerGlobalReceiver(NetPayloads.ClipView.TYPE, (payload, context) -> {
             Minecraft minecraft = context.client();
             if (minecraft.screen instanceof CableClipScreen screen && screen.clipPos().equals(payload.pos())) {

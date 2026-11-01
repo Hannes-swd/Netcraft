@@ -33,10 +33,12 @@ public final class VmSound {
         final float x;
         final float y;
         final float z;
+        final float range;
         @Nullable Instance instance;
         long lastData;
 
-        Source(int mode, float x, float y, float z) {
+        Source(int mode, float x, float y, float z, float range) {
+            this.range = range;
             this.mode = mode;
             this.stream = mode == MediaPayloads.VmAudio.DIRECT_STEREO ? new PcmStream(44_100, 2) : new PcmStream(22_050, 1);
             this.x = x;
@@ -46,7 +48,7 @@ public final class VmSound {
 
         boolean sameAs(MediaPayloads.VmAudio payload) {
             return mode == payload.mode() && Math.abs(x - payload.x()) < 0.01 && Math.abs(y - payload.y()) < 0.01
-                    && Math.abs(z - payload.z()) < 0.01;
+                    && Math.abs(z - payload.z()) < 0.01 && Math.abs(range - payload.range()) < 0.01;
         }
     }
 
@@ -64,7 +66,8 @@ public final class VmSound {
             this.x = positional ? source.x : 0;
             this.y = positional ? source.y : 0;
             this.z = positional ? source.z : 0;
-            this.volume = 1.0F;
+            // Above 1 the volume only widens the reach (the engine hears it up to volume x 16 blocks), it gets no louder.
+            this.volume = positional ? Math.max(0.05F, source.range / MediaPayloads.VmAudio.DEFAULT_RANGE) : 1.0F;
         }
 
         @Override
@@ -98,7 +101,7 @@ public final class VmSound {
             if (source != null) {
                 stop(source);
             }
-            source = new Source(payload.mode(), payload.x(), payload.y(), payload.z());
+            source = new Source(payload.mode(), payload.x(), payload.y(), payload.z(), payload.range());
             SOURCES.put(payload.vm(), source);
         }
         source.stream.write(payload.pcm());

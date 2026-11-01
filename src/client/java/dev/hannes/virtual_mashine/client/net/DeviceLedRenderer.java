@@ -69,7 +69,7 @@ public final class DeviceLedRenderer implements BlockEntityRenderer<DeviceBlockE
         VertexConsumer buffer = buffers.getBuffer(RenderType.entitySolid(TEXTURE));
         PoseStack.Pose pose = poseStack.last();
         for (int port = 0; port < Math.min(32, type.totalPorts()); port++) {
-            if ((link & (1 << port)) == 0 || type.isUsbPort(port) || type.isHdmiPort(port)) {
+            if ((link & (1 << port)) == 0 || type.isUsbPort(port) || type.isHdmiPort(port) || type.isAudioPort(port)) {
                 continue; // USB and HDMI sockets have no LEDs.
             }
             Vec3 socket = DeviceGeometry.socket(type, net.minecraft.core.BlockPos.ZERO, facing, port);
