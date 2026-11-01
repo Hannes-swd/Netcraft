@@ -11,6 +11,9 @@
                                             neue Versionen: Version hoch, Build-Check, Changelog,
                                             Commit, Tag, Push, GitHub-Release, Modrinth-Ordner
     modtool push [mod...]                   Commits aller Varianten zu GitHub pushen
+    modtool commit [mod...] -Notes "Text"   alle Änderungen der Variante(n) committen
+    modtool downloads [mod...]              gebaute Jars nach Downloads kopieren (für Modrinth);
+                                            ein Release macht das automatisch
     modtool new "Netcraft: Name" mod_id [-Mc 1.21.1]
                                             neues Addon anlegen (hängt von Netcraft ab)
     modtool port mod 1.21.4 [-From 1.21.1]  neue Minecraft-Version einer Mod als eigenen Worktree anlegen
@@ -509,6 +512,7 @@ function Cmd-Release {
             if ($LASTEXITCODE -eq 0) { Ok 'GitHub-Release erstellt' } else { Warn 'GitHub-Release konnte nicht erstellt werden' }
         }
         Copy-Item $jars[$t.Key] $outDir -Force
+        Ok "für Modrinth kopiert: $(Copy-ToUpload $jars[$t.Key])"
         $required = @('Fabric API') + @(Get-Deps $t | ForEach-Object { $_.Target.Mod.name })
         $optional = @(Get-Dependents $t | ForEach-Object { $_.Mod.name } | Select-Object -Unique)
         $modrinth += "## $($t.Mod.name)", ''
@@ -535,6 +539,53 @@ function Cmd-Push {
         if ($DryRun) { continue }
         Run-Git $t push -q --follow-tags origin $t.Branch | Out-Null
         if ($script:GitCode -eq 0) { Ok 'ok' } else { Warn 'Push fehlgeschlagen' }
+    }
+}
+
+# Release jars also go to the upload folder (Downloads) to put them on Modrinth from there.
+function Get-UploadDir {
+    $dir = if ($Config.uploadDir) { [Environment]::ExpandEnvironmentVariables($Config.uploadDir) } else { Join-Path $env:USERPROFILE 'Downloads' }
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    return $dir
+}
+
+function Copy-ToUpload([string]$jar) {
+    $dir = Get-UploadDir
+    Copy-Item $jar $dir -Force
+    return Join-Path $dir (Split-Path $jar -Leaf)
+}
+
+# The newest built jar of a variant in Releases\latest\<mc> (or $null).
+function Get-LatestJar($t) {
+    $dir = Join-Path $OutRoot "latest\$($t.Mc)"
+    $base = Get-Prop $t 'archives_base_name'
+    if (-not $base -or -not (Test-Path $dir)) { return $null }
+    return Get-ChildItem $dir -Filter "$base-*.jar" | Where-Object { $_.Name -match "^$([regex]::Escape($base))-\d" } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
+
+function Cmd-Downloads {
+    $chosen = Select-Targets $Names
+    if ($null -eq $chosen) { $chosen = @(Get-Targets | Where-Object { Test-Path $_.Path }) }
+    foreach ($t in $chosen) {
+        $jar = Get-LatestJar $t
+        if (-not $jar) { Warn "$($t.Label): noch keine gebaute Jar (erst bauen)"; continue }
+        Ok "$($t.Label): $(Copy-ToUpload $jar.FullName)"
+    }
+}
+
+# Commit everything changed in the variant(s), message from -Notes; -Push pushes right after.
+function Cmd-Commit {
+    $chosen = Select-Targets $Names
+    if ($null -eq $chosen) { $chosen = @(Get-Targets | Where-Object { Test-Path $_.Path }) }
+    $msg = if ($Notes) { $Notes } else { 'Update' }
+    foreach ($t in $chosen) {
+        if ((Get-Dirty $t) -eq 0) { Info "$($t.Label): nichts zu committen"; continue }
+        Step "Commit $($t.Label)"
+        if ($DryRun) { continue }
+        Run-Git $t add -A | Out-Null
+        Run-Git $t commit -q -m $msg | Out-Null
+        if ($script:GitCode -eq 0) { Ok ((Run-Git $t log --oneline -1) -join '') } else { Warn 'Commit fehlgeschlagen' }
     }
 }
 
@@ -786,6 +837,56 @@ function Get-GithubReleases($mod) {
     return , @(($raw -join '') | ConvertFrom-Json)
 }
 
+# What is new locally: not committed, not pushed, and everything since the last release of this variant.
+function Get-Changes($t) {
+    $uncommitted = @(Run-Git $t status --porcelain | Where-Object { $_ } | Select-Object -First 40)
+    $unpushed = @()
+    & git.exe -C $t.Path rev-parse -q --verify "refs/remotes/origin/$($t.Branch)" *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $unpushed = @(Run-Git $t log '--pretty=format:%h %s' "origin/$($t.Branch)..HEAD" | Where-Object { $_ })
+    } else {
+        $unpushed = @('(Branch noch nie gepusht)')
+    }
+    $tag = Get-Tag $t (Get-Version $t)
+    $base = ''
+    if (Test-Tag $t $tag) {
+        $base = $tag
+    } else {
+        $prev = (Run-Git $t describe --tags --abbrev=0 --match (Get-Tag $t '*')) -join ''
+        if ($script:GitCode -eq 0) { $base = $prev }
+    }
+    $since = @()
+    $files = @()
+    if ($base) {
+        $since = @(Run-Git $t log '--pretty=format:%h %s' "$base..HEAD" | Where-Object { $_ -and $_ -notmatch '^\w+ Release ' })
+        $files = @(Run-Git $t diff --name-status $base | Where-Object { $_ } | Select-Object -First 60)
+    }
+    return [ordered]@{
+        uncommitted  = $uncommitted
+        unpushed     = $unpushed
+        releaseBase  = if ($base) { $base } else { '' }
+        sinceRelease = $since
+        changedFiles = $files
+    }
+}
+
+# The newest built jar of a variant and whether that version is already released.
+function Get-JarInfo($t) {
+    $jar = Get-LatestJar $t
+    if (-not $jar) { return $null }
+    $base = Get-Prop $t 'archives_base_name'
+    $jarVersion = $jar.BaseName.Substring($base.Length + 1)
+    return [ordered]@{
+        name      = $jar.Name
+        path      = $jar.FullName
+        version   = $jarVersion
+        builtAt   = $jar.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+        released  = Test-Tag $t (Get-Tag $t $jarVersion)
+        current   = ($jarVersion -eq (Get-Version $t))
+        inUploads = Test-Path (Join-Path (Get-UploadDir) $jar.Name)
+    }
+}
+
 function Get-Overview {
     $state = Load-State
     $features = Load-Features
@@ -813,6 +914,8 @@ function Get-Overview {
                 github             = if ($exists) { Get-PushState $t } else { '-' }
                 latestRelease      = if ($releases -eq $null) { 'offline' } elseif ($latest) { $latest } else { 'keins' }
                 dependsOn          = @(Get-Deps $t | ForEach-Object { "$($_.Target.Mod.name) $(Get-Version $_.Target)" })
+                changes            = if ($exists) { Get-Changes $t } else { $null }
+                jar                = if ($exists) { Get-JarInfo $t } else { $null }
             }
         }
         [ordered]@{
@@ -1017,6 +1120,13 @@ function Invoke-GuiAction($a) {
             }
             if ($a.dry) { $argv += '-DryRun' }
         }
+        'commit-push' {
+            $tmp = Join-Path $env:TEMP "modtool-msg-$([guid]::NewGuid().ToString('N')).txt"
+            [IO.File]::WriteAllText($tmp, $(if ($a.message) { $a.message } else { 'Update' }), $Utf8)
+            $text = Invoke-Self @('commit', $a.key, '-NotesFile', $tmp)
+            return $text + (Invoke-Self @('push', $a.key))
+        }
+        'downloads' { $argv = @('downloads'); if ($a.key) { $argv += $a.key } }
         'port' { $argv = @('port', $a.mod, $a.mc); if ($a.from) { $argv += @('-From', $a.from) } }
         'new' { $argv = @('new', $a.name, $a.id, '-Mc', $a.mc) }
         'feature-add' { $argv = @('feature', 'add', $a.mod, $a.name, '-Mc', $a.mc) }
@@ -1107,6 +1217,8 @@ switch ($Command.ToLower()) {
     'run' { Cmd-Run }
     'release' { Cmd-Release }
     'push' { Cmd-Push }
+    'commit' { Cmd-Commit }
+    'downloads' { Cmd-Downloads }
     'new' { Cmd-New }
     'port' { Cmd-Port }
     default { Get-Help $PSCommandPath; Fail "Unbekannter Befehl '$Command'" }

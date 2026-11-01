@@ -53,6 +53,15 @@ dialog label{display:block;margin:10px 0 4px;color:var(--mute);font-size:12px}
 dialog input,dialog select,dialog textarea{width:100%}
 dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .hint{color:var(--mute);font-size:12px;margin-top:6px}
+.card.new{border-color:#c79a2e;box-shadow:0 0 0 1px #c79a2e55, 0 0 18px #c79a2e22}
+.newbadge{float:right;background:#c79a2e;color:#14161b;font-weight:700;font-size:11px;border-radius:4px;padding:2px 7px}
+details{margin-top:10px;background:#16191f;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+details summary{cursor:pointer;color:#e9c46a;font-size:12.5px}
+details .grp{margin:8px 0 2px;color:var(--mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+details ul{margin:2px 0 4px;padding-left:16px;font-size:12px;color:#c8d0da;font-family:Consolas,monospace;max-height:160px;overflow:auto}
+.jar{margin-top:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);font-size:12.5px;background:#16191f}
+.jar.fresh{border-color:#2f63ad;background:#14233a}
+.jar .jn{font-family:Consolas,monospace;color:#d6e4ff}
 </style>
 </head>
 <body>
@@ -127,14 +136,46 @@ function card(mod, v) {
   const b = (S.branches || []).find(x => x.name === v.branch);
   const commit = b ? `<div class="commit">${esc(b.sha)} · ${esc(b.subject)}<br><span class="sub">${esc(b.when)}</span></div>` : '';
   const deps = v.dependsOn.length ? `<div class="sub" style="margin-top:6px">braucht ${esc(v.dependsOn.join(', '))}</div>` : '';
-  return `<td class="card"><div class="branch">${esc(v.branch)}</div><div class="ver">${esc(v.version)}</div>
-    <div class="sub">${esc(v.path)}</div>${p}${deps}${commit}
+  const c = v.changes || {};
+  const arr = x => x ? (Array.isArray(x) ? x : [x]) : [];
+  const unc = arr(c.uncommitted), unp = arr(c.unpushed), since = arr(c.sinceRelease), files = arr(c.changedFiles);
+  const isNew = unc.length > 0 || since.length > 0 || !c.releaseBase;
+  const list = (title, items) => items.length ? `<div class="grp">${esc(title)} (${items.length})</div><ul>${items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '';
+  const newCount = unc.length + since.length;
+  const changes = isNew ? `<details ${unc.length ? 'open' : ''}><summary>Was ist neu${c.releaseBase ? ' seit ' + esc(c.releaseBase) : ' (noch nie veröffentlicht)'} – ${newCount} Änderung(en)</summary>
+      ${list('Nicht committet (nur lokal)', unc)}
+      ${list('Commits, nicht auf GitHub', unp.filter(x => !x.startsWith('(')))}
+      ${list('Commits seit dem letzten Release', since)}
+      ${list('Geänderte Dateien seit dem letzten Release', files)}
+    </details>` : '';
+  let jar = '';
+  if (v.jar) {
+    const fresh = !v.jar.released;
+    jar = `<div class="jar ${fresh ? 'fresh' : ''}">📦 <span class="jn">${esc(v.jar.name)}</span>
+      <div class="sub">gebaut ${esc(v.jar.builtAt)}${v.jar.current ? '' : ' · <b style="color:var(--warn)">alte Version, neu bauen</b>'}</div>
+      ${fresh ? pill('warn', 'neue Release-Datei – noch nicht veröffentlicht') : pill('ok', 'veröffentlicht')}
+      ${v.jar.inUploads ? pill('ok', 'liegt in Downloads') : pill('mute', 'nicht in Downloads')}</div>`;
+  } else {
+    jar = `<div class="jar"><span class="sub">Noch keine gebaute Jar – „Bauen" drücken.</span></div>`;
+  }
+  return `<td class="card ${isNew ? 'new' : ''}">${isNew ? '<span class="newbadge">NEU</span>' : ''}<div class="branch">${esc(v.branch)}</div><div class="ver">${esc(v.version)}</div>
+    <div class="sub">${esc(v.path)}</div>${p}${deps}${commit}${changes}${jar}
     <div class="btns">
       <button onclick="act({cmd:'build',key:'${key}'})">Bauen</button>
       <button onclick="act({cmd:'run',key:'${key}'})">Spiel starten</button>
+      <button onclick="commitPush('${key}','${esc(mod.name)} (${esc(v.mc)})',${unc.length})">Commit &amp; Push …</button>
       <button class="primary" onclick="release('${key}','${esc(mod.name)} (${esc(v.mc)})')">Release …</button>
-      <button onclick="act({cmd:'push',key:'${key}'})">Push</button>
+      <button onclick="act({cmd:'downloads',key:'${key}'})" ${v.jar ? '' : 'disabled'}>In Downloads kopieren</button>
     </div></td>`;
+}
+
+function commitPush(key, label, dirty) {
+  dialog(`<h3>Commit &amp; Push: ${esc(label)}</h3>
+    ${dirty ? '' : '<div class="hint">Keine lokalen Änderungen – es werden nur vorhandene Commits gepusht.</div>'}
+    <label>Was hast du geändert? (Commit-Nachricht)</label>
+    <textarea id="cm" rows="4" placeholder="z. B. Neuer Block: Server-Lüfter"></textarea>
+    <div class="hint">Alle Änderungen dieser Variante werden committet und auf ihren Branch bei GitHub gepusht. Ein Release (Jar zum Download) ist ein eigener Schritt.</div>`,
+    d => ({ cmd: 'commit-push', key, message: d.querySelector('#cm').value.trim() }));
 }
 
 function renderBranches() {
@@ -212,7 +253,7 @@ function release(key, label) {
     <label>Versionssprung (nur wenn es schon ein Release dieser Version gibt)</label>
     <select id="rb"><option value="patch">Patch (1.2.3 → 1.2.4) – Fehlerkorrektur</option><option value="minor">Minor (1.2.3 → 1.3.0) – neue Funktionen</option><option value="major">Major (1.2.3 → 2.0.0) – großer Umbau</option></select>
     <label><input type="checkbox" id="rd" checked style="width:auto"> nur Probelauf (zeigt den Plan, ändert nichts)</label>
-    <div class="hint">Ein echtes Release baut alles, schreibt CHANGELOG.md, committet, taggt, pusht, erstellt das GitHub-Release und legt Jars + MODRINTH.md in Mc Mods\\Releases ab.</div>`,
+    <div class="hint">Ein echtes Release committet alle Änderungen, baut alles, schreibt CHANGELOG.md, taggt, pusht, lädt die Jar als GitHub-Release hoch, kopiert sie nach Downloads (für Modrinth) und legt Jars + MODRINTH.md in Mc Mods\\Releases ab.</div>`,
     d => ({ cmd: 'release', key, notes: d.querySelector('#rn').value, bump: d.querySelector('#rb').value, dry: d.querySelector('#rd').checked }));
 }
 
