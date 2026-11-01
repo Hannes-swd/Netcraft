@@ -424,6 +424,14 @@ public final class VirtualMachine {
             manager.onVmChanged(this);
             return;
         }
+        if (!config.frozen) {
+            String blocked = dev.hannes.virtual_mashine.pc.BuiltPcs.prepare(id, config);
+            if (blocked != null) {
+                setMessage("virtual_mashine.msg.build_blocked", blocked);
+                manager.onVmChanged(this);
+                return;
+            }
+        }
         boolean resume = config.frozen;
         setState(State.STARTING, resume ? "virtual_mashine.msg.resuming" : "virtual_mashine.msg.starting", "");
         Process started = null;

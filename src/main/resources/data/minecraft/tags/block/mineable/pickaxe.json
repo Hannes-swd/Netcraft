@@ -20,6 +20,7 @@
     "virtual_mashine:rack",
     "virtual_mashine:case_small",
     "virtual_mashine:case_medium",
-    "virtual_mashine:case_large"
+    "virtual_mashine:case_large",
+    "virtual_mashine:part_fabricator"
   ]
 }

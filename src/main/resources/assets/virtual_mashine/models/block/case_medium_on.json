@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "virtual_mashine:block/case_side",
+    "front": "virtual_mashine:block/case_front_on",
+    "side": "virtual_mashine:block/case_side",
+    "top": "virtual_mashine:block/case_top"
+  },
+  "elements": [
+    {
+      "from": [3, 0, 1],
+      "to": [13, 15, 15],
+      "faces": {
+        "north": {"texture": "#front"},
+        "south": {"texture": "#side"},
+        "east": {"texture": "#side"},
+        "west": {"texture": "#side"},
+        "up": {"texture": "#top"},
+        "down": {"texture": "#top"}
+      }
+    }
+  ]
+}

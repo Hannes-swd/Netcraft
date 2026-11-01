@@ -198,6 +198,15 @@ public final class PcBuild {
         return cpu == null ? 0 : cpu.num("threads");
     }
 
+    /** Total size of all drives in GB: the machine's disk. */
+    public int storageGb() {
+        int sum = 0;
+        for (String slot : parts.keySet()) {
+            if ((slot.startsWith("m2_") || slot.startsWith("bay")) && get(slot) instanceof PcPart drive) sum += drive.num("size_gb");
+        }
+        return sum;
+    }
+
     public int ramGb() {
         int sum = 0;
         for (String slot : parts.keySet()) {

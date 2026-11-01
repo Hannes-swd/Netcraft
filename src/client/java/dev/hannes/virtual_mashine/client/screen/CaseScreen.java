@@ -1,6 +1,8 @@
 package dev.hannes.virtual_mashine.client.screen;
 
-import dev.hannes.virtual_mashine.block.CaseBlockEntity;
+import dev.hannes.virtual_mashine.block.CaseBlock;
+import dev.hannes.virtual_mashine.block.DeviceBlock;
+import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
 import dev.hannes.virtual_mashine.item.PcPartItem;
 import dev.hannes.virtual_mashine.network.CasePayload;
 import dev.hannes.virtual_mashine.pc.CaseSize;
@@ -11,6 +13,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -60,14 +63,42 @@ public class CaseScreen extends Screen {
     private int held = -1;
     private String message = "";
     private long messageUntil;
+    private Button powerButton;
+    private Button screenButton;
 
     public CaseScreen(BlockPos pos) {
         super(Component.literal("PC Case"));
         this.pos = pos;
     }
 
-    private @Nullable CaseBlockEntity entity() {
-        return minecraft != null && minecraft.level != null && minecraft.level.getBlockEntity(pos) instanceof CaseBlockEntity c ? c : null;
+    private @Nullable DeviceBlockEntity entity() {
+        return minecraft != null && minecraft.level != null && minecraft.level.getBlockState(pos).getBlock() instanceof CaseBlock
+                && minecraft.level.getBlockEntity(pos) instanceof DeviceBlockEntity c ? c : null;
+    }
+
+    /** The power LED of the case: its machine runs. */
+    private boolean powered() {
+        return minecraft != null && minecraft.level != null && minecraft.level.getBlockState(pos).getBlock() instanceof CaseBlock
+                && minecraft.level.getBlockState(pos).getValue(DeviceBlock.LIT);
+    }
+
+    @Override
+    protected void init() {
+        powerButton = addRenderableWidget(Button.builder(Component.literal("Power On"), b -> {
+            send(powered() ? CasePayload.SHUTDOWN : CasePayload.POWER_ON, "", -1);
+        }).bounds(width - 108, 2, 100, 18).build());
+        screenButton = addRenderableWidget(Button.builder(Component.literal("Open Screen"), b -> send(CasePayload.SCREEN, "", -1))
+                .bounds(width - 212, 2, 100, 18).build());
+        updateButtons();
+    }
+
+    private void updateButtons() {
+        if (powerButton == null) return;
+        boolean on = powered();
+        powerButton.setMessage(Component.literal(on ? "Shut Down" : "Power On"));
+        DeviceBlockEntity e = entity();
+        powerButton.active = on || e != null && e.build().bootable();
+        screenButton.active = on;
     }
 
     @Override
@@ -75,6 +106,7 @@ public class CaseScreen extends Screen {
         if (entity() == null || minecraft.player == null || minecraft.player.distanceToSqr(Vec3.atCenterOf(pos)) > 64) {
             onClose();
         }
+        updateButtons();
     }
 
     private float progress() {
@@ -295,8 +327,10 @@ public class CaseScreen extends Screen {
         int x = caseRect.x;
         List<String> missing = build.missing();
         List<String> problems = build.problems();
-        if (missing.isEmpty() && problems.isEmpty()) {
-            g.drawString(font, "Ready to boot - connect a monitor", x, y, GREEN, true);
+        if (powered()) {
+            g.drawString(font, "Running - parts are locked until you shut it down", x, y, GREEN, true);
+        } else if (missing.isEmpty() && problems.isEmpty()) {
+            g.drawString(font, "Ready - connect a monitor (HDMI) and press Power On", x, y, GREEN, true);
         } else if (!missing.isEmpty()) {
             g.drawString(font, font.plainSubstrByWidth("Missing: " + String.join(", ", missing), width - x - 8), x, y, RED, true);
         } else {
@@ -314,7 +348,7 @@ public class CaseScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mx, int my, float partialTick) {
         super.render(g, mx, my, partialTick);
-        CaseBlockEntity entity = entity();
+        DeviceBlockEntity entity = entity();
         if (entity == null) return;
         build = entity.build();
         computeLayout();
@@ -380,9 +414,9 @@ public class CaseScreen extends Screen {
         messageUntil = Util.getMillis() + 3000;
     }
 
-    private void send(boolean install, String slot, int inv) {
+    private void send(String action, String slot, int inv) {
         if (ClientPlayNetworking.canSend(CasePayload.TYPE)) {
-            ClientPlayNetworking.send(new CasePayload(pos, install, slot, inv));
+            ClientPlayNetworking.send(new CasePayload(pos, action, slot, inv));
         }
     }
 
@@ -392,11 +426,11 @@ public class CaseScreen extends Screen {
             held = -1;
             return;
         }
-        String reason = build.canInstall(slot, part);
+        String reason = powered() ? "Shut the PC down before building" : build.canInstall(slot, part);
         if (reason != null) {
             flash(reason);
         } else {
-            send(true, slot, held);
+            send(CasePayload.INSTALL, slot, held);
         }
         held = -1;
     }
@@ -414,9 +448,9 @@ public class CaseScreen extends Screen {
             if (held >= 0) {
                 tryInstall(slot);
             } else if (build.get(slot) != null) {
-                String reason = build.canRemove(slot);
+                String reason = powered() ? "Shut the PC down before building" : build.canRemove(slot);
                 if (reason != null) flash(reason);
-                else send(false, slot, -1);
+                else send(CasePayload.REMOVE, slot, -1);
             }
             return true;
         }

@@ -2,7 +2,7 @@ package dev.hannes.virtual_mashine;
 
 import com.mojang.serialization.Codec;
 import dev.hannes.virtual_mashine.block.CaseBlock;
-import dev.hannes.virtual_mashine.block.CaseBlockEntity;
+import dev.hannes.virtual_mashine.block.PartFabricatorBlock;
 import dev.hannes.virtual_mashine.block.CableClipBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlock;
 import dev.hannes.virtual_mashine.block.DeviceBlockEntity;
@@ -14,6 +14,7 @@ import dev.hannes.virtual_mashine.item.CableItem;
 import dev.hannes.virtual_mashine.item.NetworkTesterItem;
 import dev.hannes.virtual_mashine.item.PhoneItem;
 import dev.hannes.virtual_mashine.item.PcPartItem;
+import dev.hannes.virtual_mashine.item.PartTemplateItem;
 import dev.hannes.virtual_mashine.pc.CaseSize;
 import dev.hannes.virtual_mashine.pc.PartCategory;
 import dev.hannes.virtual_mashine.pc.PcPart;
@@ -59,6 +60,17 @@ public final class ModRegistry {
             BuiltInRegistries.DATA_COMPONENT_TYPE,
             Virtual_mashine.id("cable_color"),
             DataComponentType.<Integer>builder().persistent(Codec.INT).networkSynchronized(ByteBufCodecs.INT).build()
+    );
+
+    /** Slot to part id of the parts in a case; travels with the dropped case. */
+    public static final DataComponentType<Map<String, String>> PC_BUILD = Registry.register(
+            BuiltInRegistries.DATA_COMPONENT_TYPE,
+            Virtual_mashine.id("pc_build"),
+            DataComponentType.<Map<String, String>>builder()
+                    .persistent(Codec.unboundedMap(Codec.STRING, Codec.STRING))
+                    .networkSynchronized(ByteBufCodecs.<io.netty.buffer.ByteBuf, String, String, Map<String, String>>map(
+                            java.util.HashMap::new, ByteBufCodecs.STRING_UTF8, ByteBufCodecs.STRING_UTF8))
+                    .build()
     );
 
     /** Which real part a PC part item is (id from the pc_parts data files). */
@@ -126,20 +138,16 @@ public final class ModRegistry {
     public static final Item NETWORK_TESTER = item("network_tester", NetworkTesterItem::new);
     public static final Item PHONE = item("phone", properties -> new PhoneItem(properties.stacksTo(1)));
 
-    /** Registry id stays "pc" so PCs from earlier versions keep their machine. */
-    public static final BlockEntityType<DeviceBlockEntity> DEVICE_BLOCK_ENTITY = Registry.register(
-            BuiltInRegistries.BLOCK_ENTITY_TYPE,
-            Virtual_mashine.id("pc"),
-            FabricBlockEntityTypeBuilder.create(DeviceBlockEntity::new, DEVICE_BLOCKS.values().toArray(new Block[0])).build()
-    );
-
-
     public static final Map<PartCategory, Item> PART_ITEMS = new EnumMap<>(PartCategory.class);
+    /** Blank templates, one per category: made into a real part in the part fabricator. */
+    public static final Map<PartCategory, Item> PART_TEMPLATES = new EnumMap<>(PartCategory.class);
+    /** Buildable PCs: computers like the PC block, but their hardware are the parts built in. */
     public static final Map<CaseSize, Block> CASE_BLOCKS = new EnumMap<>(CaseSize.class);
 
     static {
         for (PartCategory category : PartCategory.values()) {
             PART_ITEMS.put(category, item(category.id, properties -> new PcPartItem(category, properties.stacksTo(16))));
+            PART_TEMPLATES.put(category, item(category.id + "_template", PartTemplateItem::new));
         }
         for (CaseSize size : CaseSize.values()) {
             Block block = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id(size.id), new CaseBlock(size,
@@ -148,17 +156,30 @@ public final class ModRegistry {
                             .strength(2.0F, 6.0F)
                             .sound(SoundType.METAL)
                             .requiresCorrectToolForDrops()
-                            .noOcclusion()));
+                            .noOcclusion()
+                            .isRedstoneConductor((state, level, pos) -> false)
+                            .lightLevel(state -> state.getValue(DeviceBlock.LIT) ? 5 : 0)));
             CASE_BLOCKS.put(size, block);
-            Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(size.id), new BlockItem(block, new Item.Properties()));
+            Registry.register(BuiltInRegistries.ITEM, Virtual_mashine.id(size.id), new BlockItem(block, new Item.Properties().stacksTo(1)));
         }
     }
 
-    public static final BlockEntityType<CaseBlockEntity> CASE_BLOCK_ENTITY = Registry.register(
+    public static final Block PART_FABRICATOR_BLOCK = Registry.register(BuiltInRegistries.BLOCK, Virtual_mashine.id("part_fabricator"),
+            new PartFabricatorBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()));
+    public static final Item PART_FABRICATOR = item("part_fabricator", properties -> new BlockItem(PART_FABRICATOR_BLOCK, properties));
+
+    /** Registry id stays "pc" so PCs from earlier versions keep their machine. Cases are devices too. */
+    public static final BlockEntityType<DeviceBlockEntity> DEVICE_BLOCK_ENTITY = Registry.register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE,
-            Virtual_mashine.id("pc_case"),
-            FabricBlockEntityTypeBuilder.create(CaseBlockEntity::new, CASE_BLOCKS.values().toArray(new Block[0])).build()
+            Virtual_mashine.id("pc"),
+            FabricBlockEntityTypeBuilder.create(DeviceBlockEntity::new, java.util.stream.Stream.concat(
+                    DEVICE_BLOCKS.values().stream(), CASE_BLOCKS.values().stream()).toArray(Block[]::new)).build()
     );
+
 
     private ModRegistry() {
     }
@@ -185,6 +206,10 @@ public final class ModRegistry {
                 .displayItems((parameters, output) -> {
                     for (Block block : CASE_BLOCKS.values()) {
                         output.accept(block);
+                    }
+                    output.accept(PART_FABRICATOR);
+                    for (Item template : PART_TEMPLATES.values()) {
+                        output.accept(template);
                     }
                     for (PartCategory category : PartCategory.values()) {
                         for (PcPart part : PcParts.of(category)) {

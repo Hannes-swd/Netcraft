@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {"item": "minecraft:paper"},
+    {"item": "minecraft:iron_ingot"},
+    {"item": "minecraft:redstone"},
+    {"item": "minecraft:green_dye"}
+  ],
+  "result": {
+    "id": "virtual_mashine:mainboard_template",
+    "count": 1
+  }
+}

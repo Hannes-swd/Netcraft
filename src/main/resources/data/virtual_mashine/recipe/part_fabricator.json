@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["III", "RCR", "IPI"],
+  "key": {"I": {"item": "minecraft:iron_ingot"}, "R": {"item": "minecraft:redstone"}, "C": {"item": "minecraft:crafting_table"}, "P": {"item": "minecraft:piston"}},
+  "result": {
+    "id": "virtual_mashine:part_fabricator",
+    "count": 1
+  }
+}
