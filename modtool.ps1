@@ -926,7 +926,15 @@ a{color:#9ecbff}
     $file = Join-Path $ToolDir 'dashboard.html'
     [IO.File]::WriteAllText($file, $sb.ToString(), $Utf8)
     Ok "Dashboard: $file"
-    if (-not $NoPrompt) { Start-Process $file }
+    if (-not $NoPrompt) {
+        # .html may be tied to a text editor: open it in a browser explicitly.
+        $url = ([Uri]$file).AbsoluteUri
+        $opened = $false
+        foreach ($browser in @('chrome', 'msedge', 'firefox')) {
+            try { Start-Process $browser $url -ErrorAction Stop; $opened = $true; break } catch { }
+        }
+        if (-not $opened) { Start-Process $file }
+    }
 }
 
 switch ($Command.ToLower()) {
