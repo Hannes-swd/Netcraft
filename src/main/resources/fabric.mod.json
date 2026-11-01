@@ -7,6 +7,11 @@
   "authors": [
     "Hannes"
   ],
+  "contact": {
+    "homepage": "https://github.com/Hannes-swd/Netcraft/tree/pc-builder/mc-1.21.1",
+    "sources": "https://github.com/Hannes-swd/Netcraft/tree/pc-builder/mc-1.21.1",
+    "issues": "https://github.com/Hannes-swd/Netcraft/issues"
+  },
   "license": "All-Rights-Reserved",
   "icon": "assets/netcraft_pc_builder/icon.png",
   "environment": "*",
