@@ -344,12 +344,21 @@ function Invoke-Build($t, [switch]$RunClient) {
     $oldCwd = [Environment]::CurrentDirectory
     [Environment]::CurrentDirectory = $copy
     $gradlew = Join-Path $copy 'gradlew.bat'
+    # Started through the shell (no inherited handles): a Gradle daemon started by this build would
+    # otherwise keep our output pipe open, and modtool (or the GUI) would wait until the daemon dies.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'cmd.exe'
+    $psi.WorkingDirectory = $copy
+    $psi.UseShellExecute = $true
     if ($RunClient) {
-        cmd /c "$gradlew -p $copy $tasks $props --console=plain"
+        $psi.Arguments = "/c `"$gradlew -p $copy $tasks $props --console=plain`""
     } else {
-        cmd /c "$gradlew -p $copy $tasks $props --console=plain > $log 2>&1"
+        $psi.Arguments = "/c `"$gradlew -p $copy $tasks $props --console=plain > $log 2>&1`""
+        $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
     }
-    $code = $LASTEXITCODE
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $proc.WaitForExit()
+    $code = $proc.ExitCode
     [Environment]::CurrentDirectory = $oldCwd
     Pop-Location
     if ($RunClient) { return $null }
